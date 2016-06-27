@@ -52,7 +52,6 @@ function connected_cb(connectionInfo){
    connid = connectionInfo.connectionId;
 	connected = true;
    // out(connectionInfo.connectionId + "<br />");
-   chrome.serial.onReceive.addListener(receive);
 	document.getElementById('connectbutton').innerHTML = "Disconnect";
 };
 
@@ -94,6 +93,22 @@ function onconnect(e){
 }
 
 document.addEventListener('DOMContentLoaded', function () {
+	
+
+	var pstyle = 'background-color: #F5F6F7; border: 1px solid #dfdfdf; padding: 5px;';
+	$('#layout').w2layout({
+		name: 'layout',
+		panels: [
+			{ type: 'top',  size: 50, resizable: false, style: pstyle, content: '<a href="" id="connectbutton">Connect</a>' },
+			// { type: 'left', size: 200, resizable: true, style: pstyle, content: 'left' },
+			{ type: 'main', style: pstyle, content: 'main' },
+			{ type: 'preview', size: '50%', resizable: true, style: pstyle, content: '<div id="out" style="overflow-y:scroll; overflow-x:hidden; height:100%;"></div>' },
+			// { type: 'right', size: 200, resizable: true, style: pstyle, content: 'right' },
+			{ type: 'bottom', size: 50, resizable: false, style: pstyle, content: '<input type="text" id="command" class="heighttext" name="command" autocomplete="off" spellcheck="false" autofocus>' }
+		]
+	});
+
+	chrome.serial.onReceive.addListener(receive);
    document.getElementById('command').addEventListener("keypress", keypress);
    document.getElementById('connectbutton').addEventListener("click", onconnect);
 });
