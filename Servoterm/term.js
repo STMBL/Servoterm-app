@@ -25,16 +25,20 @@ function out(txt){
    out.scrollTop = out.scrollHeight;
 }
 
+function println(str){
+	out('<font color="FireBrick">' + str + '</font><br/>')
+}
+
 function sendcb(info){
-   //out("send " + info.bytesSent + " bytes");
-   //out("error: " + info.error);
+   //println("send " + info.bytesSent + " bytes");
+   //println("error: " + info.error);
 }
 
 function keypress(e) {
    if (e.keyCode == 13) {
       var cmd = document.getElementById("command");
-      //out(cmd.value);
-      //out(connid);
+      //println(cmd.value);
+      //println(connid);
       chrome.serial.send(connid, convertStringToArrayBuffer(cmd.value + '\n'), sendcb);
       cmd.value = '';
       return false;
@@ -42,7 +46,7 @@ function keypress(e) {
 }
 
 function receive(info){
-   //out("receive");
+   //println("receive");
    var str = convertArrayBufferToString(info.data);
    out(str);
 }
@@ -51,7 +55,7 @@ function connected_cb(connectionInfo){
    out("connected<br/>");
    connid = connectionInfo.connectionId;
 	connected = true;
-   // out(connectionInfo.connectionId + "<br />");
+   // println(connectionInfo.connectionId);
 	document.getElementById('connectbutton').innerHTML = "Disconnect";
 };
 
@@ -59,13 +63,13 @@ function getdevs(devices){
    for (var i = 0; i < devices.length; i++) {
       if(devices[i].displayName && devices[i].displayName.indexOf("STMBL") > -1){
 			path = devices[i].path;
-         out("Connecting to " + devices[i].path + "<br/>");
+         println("Connecting to " + devices[i].path);
          chrome.serial.connect(devices[i].path, connected_cb);
          return;
       }
-      //out(devices[i].path + ' ' + devices[i].displayName + ' ' + devices[i].vendorId + ' ' + devices[i].productId + "<br/>");
+      //println(devices[i].path + ' ' + devices[i].displayName + ' ' + devices[i].vendorId + ' ' + devices[i].productId );
    }
-	out("not found<br/>");
+	println('not found');
 }
 
 function connect(){
@@ -74,7 +78,7 @@ function connect(){
 }
 
 function disconnected_cb(){
-	out("disconnected<br/>");
+	println('disconnected');
 }
 
 function disconnect(){
@@ -92,22 +96,62 @@ function onconnect(e){
 	}
 }
 
-document.addEventListener('DOMContentLoaded', function () {
+function resize(){
+	// console.log("resize");
+	var canvas = document.getElementById('wavecanvas');
+   canvas.style.width='100%';
+   canvas.style.height='100%';
+   canvas.width  = canvas.offsetWidth;
+   canvas.height = canvas.offsetHeight;
+   var x_res = canvas.width;
+   var y_res = canvas.height;
 	
+	var ctx = canvas.getContext('2d');
+	ctx.beginPath();
+	
+	//cross
+   ctx.moveTo(0,0);
+   ctx.lineTo(x_res, y_res);
+   ctx.moveTo(x_res,0);
+   ctx.lineTo(0, y_res);
+	
+	//outline
+   ctx.moveTo(0,y_res);
+   ctx.lineTo(x_res, y_res);
+	
+   ctx.moveTo(0,0);
+   ctx.lineTo(x_res, 0);
+	
+   ctx.moveTo(x_res, 0);
+   ctx.lineTo(x_res, y_res);
+	
+   ctx.moveTo(0, 0);
+   ctx.lineTo(0, y_res);
+	
+	//centerline
+   ctx.moveTo(0, y_res/2);
+   ctx.lineTo(x_res, y_res/2);
+	
+   ctx.stroke();
+}
+
+document.addEventListener('DOMContentLoaded', function () {
 
 	var pstyle = 'background-color: #F5F6F7; border: 1px solid #dfdfdf; padding: 5px;';
 	$('#layout').w2layout({
 		name: 'layout',
 		panels: [
-			{ type: 'top',  size: 50, resizable: false, style: pstyle, content: '<a href="" id="connectbutton">Connect</a>' },
-			// { type: 'left', size: 200, resizable: true, style: pstyle, content: 'left' },
-			{ type: 'main', style: pstyle, content: 'main' },
-			{ type: 'preview', size: '50%', resizable: true, style: pstyle, content: '<div id="out" style="overflow-y:scroll; overflow-x:hidden; height:100%;"></div>' },
-			// { type: 'right', size: 200, resizable: true, style: pstyle, content: 'right' },
-			{ type: 'bottom', size: 50, resizable: false, style: pstyle, content: '<input type="text" id="command" class="heighttext" name="command" autocomplete="off" spellcheck="false" autofocus>' }
-		]
+			{ type: 'top',  size: 30, resizable: false, style: pstyle, content: '<a href="" id="connectbutton">Connect</a>' },
+			{ type: 'main', style: pstyle, content: '<canvas id="wavecanvas"></canvas>' },
+			{ type: 'preview'	, size: '50%', resizable: true, style: pstyle, content: '<div class="output" id="out"></div>' },
+			{ type: 'bottom', size: 37, resizable: false, style: pstyle, content: '<input type="text" id="command" class="heighttext" name="command" autocomplete="off" spellcheck="false" autofocus>' }
+		]  
 	});
-
+	
+	w2ui['layout'].on({ type : 'resize', execute : 'after'}, function (target, eventData) {
+		resize();
+	});
+	
 	chrome.serial.onReceive.addListener(receive);
    document.getElementById('command').addEventListener("keypress", keypress);
    document.getElementById('connectbutton').addEventListener("click", onconnect);
