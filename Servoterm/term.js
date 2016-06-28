@@ -98,16 +98,35 @@ function onconnect(e){
 
 function resize(){
 	// console.log("resize");
+   
+   //console.log(window.devicePixelRatio);
+   
 	var canvas = document.getElementById('wavecanvas');
+   var pixel = 1;
    canvas.style.width='100%';
    canvas.style.height='100%';
    canvas.width  = canvas.offsetWidth;
    canvas.height = canvas.offsetHeight;
+   
+   //HiDPI display support
+   if(window.devicePixelRatio){
+      pixel = window.devicePixelRatio;
+      var height = canvas.getAttribute('height');
+      var width = canvas.getAttribute('width');
+      // reset the canvas width and height with window.devicePixelRatio applied
+      canvas.setAttribute('width', Math.round(width * window.devicePixelRatio));
+      canvas.setAttribute('height', Math.round( height * window.devicePixelRatio));
+      // force the canvas back to the original size using css
+      canvas.style.width = width+"px";
+      canvas.style.height = height+"px";
+   }
+   
    var x_res = canvas.width;
    var y_res = canvas.height;
-	
+   
 	var ctx = canvas.getContext('2d');
 	ctx.beginPath();
+   ctx.lineWidth = pixel;
 	
 	//cross
    ctx.moveTo(0,0);
