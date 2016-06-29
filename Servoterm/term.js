@@ -1,6 +1,10 @@
 var connid;
 var connected = false;
 var path;
+var addr = -1;
+var values = [];
+var plotxpos = 0;
+var plotypos = 0;
 
 function convertArrayBufferToString(buf){
   var bufView = new Uint8Array(buf);
@@ -46,13 +50,35 @@ function keypress(e) {
 }
 
 function receive(info){
-   //println("receive");
-   var str = convertArrayBufferToString(info.data);
-   out(str);
+	//println("receive");
+	var buf = new Uint8Array(info.data);
+	var txt = '';
+	for (var i = 0; i < buf.length; i++) {
+		if(addr >= 0){
+			values[addr++] = (buf[i]-128) / 128.0;
+			if(addr == 8){
+				plot(values[0]);
+				addr = -1;
+			}
+		}else if (buf[i] == 0xff) {
+			addr = 0;
+		}else{
+			//TODO: is there a better way?
+			var str = String.fromCharCode.apply(null, [buf[i]]);
+			if(str == '\n'){
+				txt = txt + "<br />";
+			}else{
+				txt = txt + str;
+			}
+		}
+	}
+	if(txt.length > 0){//an empty string causes the view to scroll all the time
+		out(txt);
+	}
 }
 
 function connected_cb(connectionInfo){
-   out("connected<br/>");
+   println("connected");
    connid = connectionInfo.connectionId;
 	connected = true;
    // println(connectionInfo.connectionId);
@@ -96,6 +122,35 @@ function onconnect(e){
 	}
 }
 
+function plot(value){
+	//TODO: multiple waves
+	var canvas = document.getElementById('wavecanvas');
+	var pixel = 1;
+   var x_res = canvas.width;
+   var y_res = canvas.height;
+   
+	var ctx = canvas.getContext('2d');
+	ctx.beginPath();
+   ctx.lineWidth = pixel;
+	
+	ctx.clearRect(plotxpos, 0, 1, canvas.height);
+	
+	//centerline
+   ctx.moveTo(plotxpos, y_res/2);
+   ctx.lineTo(plotxpos+1, y_res/2);
+	
+	var ypos = (value*-1+1)*(y_res/2.0);
+   ctx.moveTo(plotxpos,plotypos);
+	plotxpos+=pixel;
+   ctx.lineTo(plotxpos,ypos);
+	plotypos = ypos;//save previous position
+	if(plotxpos>=x_res){
+		plotxpos = 0;
+	}
+		
+   ctx.stroke();
+}
+
 function resize(){
 	// console.log("resize");
    
@@ -128,6 +183,7 @@ function resize(){
 	ctx.beginPath();
    ctx.lineWidth = pixel;
 	
+	/*
 	//cross
    ctx.moveTo(0,0);
    ctx.lineTo(x_res, y_res);
@@ -146,6 +202,7 @@ function resize(){
 	
    ctx.moveTo(0, 0);
    ctx.lineTo(0, y_res);
+	*/
 	
 	//centerline
    ctx.moveTo(0, y_res/2);
