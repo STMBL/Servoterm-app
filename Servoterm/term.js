@@ -157,6 +157,13 @@ function onclear(e){
    out.innerHTML = "";
 }
 
+function onreset(e){
+	if(connected){
+		chrome.serial.send(connid, convertStringToArrayBuffer('fault0.reset = 1\n'), sendcb);
+		chrome.serial.send(connid, convertStringToArrayBuffer('fault0.reset = 0\n'), sendcb);
+	}
+}
+
 function onconnect(e){
 	if(connected){
 		disconnect();
@@ -209,7 +216,7 @@ function resize(){
 	// console.log("resize");
    
    //console.log(window.devicePixelRatio);
-   
+   plotxpos = 0;
 	var canvas = document.getElementById('wavecanvas');
    var pixel = 1;
    canvas.style.width='100%';
@@ -272,7 +279,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	$('#layout').w2layout({
 		name: 'layout',
 		panels: [
-			{ type: 'top',  size: 30, resizable: false, style: pstyle, content: '<input type="button" id="connectbutton" value="Connect"><input type="button" id="clearbutton" value="Clear">' },
+			{ type: 'top',  size: 30, resizable: false, style: pstyle, content: '<input type="button" id="connectbutton" value="Connect"><input type="button" id="clearbutton" value="Clear"><input type="button" id="resetbutton" value="Reset">' },
 			{ type: 'main', style: pstyle, content: '<canvas id="wavecanvas"></canvas>' },
 			{ type: 'preview'	, size: '50%', resizable: true, style: pstyle, content: '<div class="output" id="out"></div>' },
 			{ type: 'bottom', size: 37, resizable: false, style: pstyle, content: '<input type="text" id="command" class="heighttext" name="command" autocomplete="off" spellcheck="false" autofocus>' }
@@ -288,4 +295,5 @@ document.addEventListener('DOMContentLoaded', function () {
    document.getElementById('command').addEventListener("keydown", keypress);
    document.getElementById('connectbutton').addEventListener("click", onconnect);
 	document.getElementById('clearbutton').addEventListener("click", onclear);
+	document.getElementById('resetbutton').addEventListener("click", onreset);
 });
