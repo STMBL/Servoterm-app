@@ -4,7 +4,10 @@ var path;
 var addr = -1;
 var values = [];
 var plotxpos = 0;
-var plotypos = 0;
+var plotypos = [];
+var histpos = 0;
+var cmdhistory = [];
+var wavecolor = ["black", "red", "blue", "green", "rgb(255, 128, 0)", "rgb(128, 128, 64)", "rgb(128, 64, 128)", "rgb(64, 128, 128)"];
 
 function convertArrayBufferToString(buf){
   var bufView = new Uint8Array(buf);
@@ -39,8 +42,37 @@ function sendcb(info){
 }
 
 function keypress(e) {
-   if (e.keyCode == 13) {
-      var cmd = document.getElementById("command");
+	var cmd = document.getElementById("command");
+	if(e.keyCode == 9){//tab
+		e.preventDefault();
+		return false;
+	}
+	if(e.keyCode == 38){//up
+		e.preventDefault();
+		if(histpos > 0 && cmdhistory.length>0){
+			cmd.value = cmdhistory[--histpos];
+			cmd.setSelectionRange(cmd.value.length, cmd.value.length);
+		}
+		return false;
+	}
+	if(e.keyCode == 40){//down
+		e.preventDefault();
+		if(histpos < cmdhistory.length - 1 && cmdhistory.length > 0){
+			cmd.value = cmdhistory[++histpos];
+			cmd.setSelectionRange(cmd.value.length, cmd.value.length);
+		}else if(histpos < cmdhistory.length){
+			histpos++;
+			cmd.value = '';
+		}
+		return false;
+	}
+   if(e.keyCode == 13 && connected){//enter
+		e.preventDefault();
+		//if((history.size()==0 || history.back() != s) && !s.empty()){
+		if((cmdhistory.length == 0 || cmdhistory[cmdhistory.length-1] != cmd.value ) && cmd.value != ''){
+			cmdhistory[cmdhistory.length] = cmd.value;
+		}
+		histpos = cmdhistory.length;
       //println(cmd.value);
       //println(connid);
       chrome.serial.send(connid, convertStringToArrayBuffer(cmd.value + '\n'), sendcb);
@@ -57,7 +89,7 @@ function receive(info){
 		if(addr >= 0){
 			values[addr++] = (buf[i]-128) / 128.0;
 			if(addr == 8){
-				plot(values[0]);
+				plot(values);
 				addr = -1;
 			}
 		}else if (buf[i] == 0xff) {
@@ -120,6 +152,11 @@ function disconnect(){
 	connected = false;
 }
 
+function onclear(e){
+   var out = document.getElementById("out");
+   out.innerHTML = "";
+}
+
 function onconnect(e){
 	if(connected){
 		disconnect();
@@ -137,25 +174,35 @@ function plot(value){
    var y_res = canvas.height;
    
 	var ctx = canvas.getContext('2d');
-	ctx.beginPath();
-   ctx.lineWidth = pixel;
 	
 	ctx.clearRect(plotxpos, 0, 1, canvas.height);
 	
+	//var i = 0;
+	for(var i = 0;i<value.length;i++){
+		var ypos = (value[i]*-1+1)*(y_res/2.0);
+		if(plotypos[i] && values[i]){
+			ctx.beginPath();
+		   ctx.lineWidth = pixel;
+			ctx.strokeStyle = wavecolor[i];
+   		ctx.moveTo(plotxpos,plotypos[i]);
+   		ctx.lineTo(plotxpos+pixel,ypos);
+			ctx.stroke();
+		}
+		plotypos[i] = ypos;//save previous position
+	}
+	
 	//centerline
+	ctx.beginPath();
+	ctx.lineWidth = pixel;
+	ctx.strokeStyle= "grey";
    ctx.moveTo(plotxpos, y_res/2);
    ctx.lineTo(plotxpos+1, y_res/2);
+	ctx.stroke();
 	
-	var ypos = (value*-1+1)*(y_res/2.0);
-   ctx.moveTo(plotxpos,plotypos);
 	plotxpos+=pixel;
-   ctx.lineTo(plotxpos,ypos);
-	plotypos = ypos;//save previous position
 	if(plotxpos>=x_res){
 		plotxpos = 0;
 	}
-		
-   ctx.stroke();
 }
 
 function resize(){
@@ -188,6 +235,7 @@ function resize(){
    
 	var ctx = canvas.getContext('2d');
 	ctx.beginPath();
+	ctx.strokeStyle= "grey";
    ctx.lineWidth = pixel;
 	
 	/*
@@ -224,7 +272,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	$('#layout').w2layout({
 		name: 'layout',
 		panels: [
-			{ type: 'top',  size: 30, resizable: false, style: pstyle, content: '<input type="button" id="connectbutton" value="Connect">' },
+			{ type: 'top',  size: 30, resizable: false, style: pstyle, content: '<input type="button" id="connectbutton" value="Connect"><input type="button" id="clearbutton" value="Clear">' },
 			{ type: 'main', style: pstyle, content: '<canvas id="wavecanvas"></canvas>' },
 			{ type: 'preview'	, size: '50%', resizable: true, style: pstyle, content: '<div class="output" id="out"></div>' },
 			{ type: 'bottom', size: 37, resizable: false, style: pstyle, content: '<input type="text" id="command" class="heighttext" name="command" autocomplete="off" spellcheck="false" autofocus>' }
@@ -237,6 +285,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	
 	chrome.serial.onReceive.addListener(receive);
 	chrome.serial.onReceiveError.addListener(error);
-   document.getElementById('command').addEventListener("keypress", keypress);
+   document.getElementById('command').addEventListener("keydown", keypress);
    document.getElementById('connectbutton').addEventListener("click", onconnect);
+	document.getElementById('clearbutton').addEventListener("click", onclear);
 });
