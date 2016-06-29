@@ -279,10 +279,10 @@ document.addEventListener('DOMContentLoaded', function () {
 	$('#layout').w2layout({
 		name: 'layout',
 		panels: [
-			{ type: 'top',  size: 30, resizable: false, style: pstyle, content: '<input type="button" id="connectbutton" value="Connect"><input type="button" id="clearbutton" value="Clear"><input type="button" id="resetbutton" value="Reset">' },
+			{ type: 'top',  size: 30, overflow: "hidden", resizable: false, style: pstyle, content: '<input type="button" id="connectbutton" value="Connect"><input type="button" id="clearbutton" value="Clear"><input type="button" id="resetbutton" value="Reset">' },
 			{ type: 'main', style: pstyle, content: '<canvas id="wavecanvas"></canvas>' },
 			{ type: 'preview'	, size: '50%', resizable: true, style: pstyle, content: '<div class="output" id="out"></div>' },
-			{ type: 'bottom', size: 37, resizable: false, style: pstyle, content: '<input type="text" id="command" class="heighttext" name="command" autocomplete="off" spellcheck="false" autofocus>' }
+			{ type: 'bottom', size: 37, overflow: "hidden", resizable: false, style: pstyle, content: '<input type="text" id="command" class="heighttext" name="command" autocomplete="off" spellcheck="false" autofocus>' }
 		]  
 	});
 	
