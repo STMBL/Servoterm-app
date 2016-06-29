@@ -78,11 +78,13 @@ function receive(info){
 }
 
 function connected_cb(connectionInfo){
-   println("connected");
-   connid = connectionInfo.connectionId;
-	connected = true;
-   // println(connectionInfo.connectionId);
-	document.getElementById('connectbutton').value = "Disconnect";
+	if(connectionInfo.connectionId){
+   	println("connected");
+   	connid = connectionInfo.connectionId;
+		connected = true;
+   	// println(connectionInfo.connectionId);
+		document.getElementById('connectbutton').value = "Disconnect";
+	}
 };
 
 function getdevs(devices){
@@ -105,6 +107,11 @@ function connect(){
 
 function disconnected_cb(){
 	println('disconnected');
+}
+
+function error(info){
+	println(info.error);
+	disconnect();
 }
 
 function disconnect(){
@@ -229,6 +236,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	});
 	
 	chrome.serial.onReceive.addListener(receive);
+	chrome.serial.onReceiveError.addListener(error);
    document.getElementById('command').addEventListener("keypress", keypress);
    document.getElementById('connectbutton').addEventListener("click", onconnect);
 });
