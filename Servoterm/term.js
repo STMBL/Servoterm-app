@@ -82,7 +82,7 @@ function connected_cb(connectionInfo){
    connid = connectionInfo.connectionId;
 	connected = true;
    // println(connectionInfo.connectionId);
-	document.getElementById('connectbutton').innerHTML = "Disconnect";
+	document.getElementById('connectbutton').value = "Disconnect";
 };
 
 function getdevs(devices){
@@ -109,7 +109,7 @@ function disconnected_cb(){
 
 function disconnect(){
 	chrome.serial.disconnect(connid,disconnected_cb);
-	document.getElementById('connectbutton').innerHTML = "Connect";
+	document.getElementById('connectbutton').value = "Connect";
 	connected = false;
 }
 
@@ -217,7 +217,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	$('#layout').w2layout({
 		name: 'layout',
 		panels: [
-			{ type: 'top',  size: 30, resizable: false, style: pstyle, content: '<a href="" id="connectbutton">Connect</a>' },
+			{ type: 'top',  size: 30, resizable: false, style: pstyle, content: '<input type="button" id="connectbutton" value="Connect">' },
 			{ type: 'main', style: pstyle, content: '<canvas id="wavecanvas"></canvas>' },
 			{ type: 'preview'	, size: '50%', resizable: true, style: pstyle, content: '<div class="output" id="out"></div>' },
 			{ type: 'bottom', size: 37, resizable: false, style: pstyle, content: '<input type="text" id="command" class="heighttext" name="command" autocomplete="off" spellcheck="false" autofocus>' }
