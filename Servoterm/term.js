@@ -8,6 +8,7 @@ var plotypos = [];
 var histpos = 0;
 var cmdhistory = [];
 var wavecolor = ["black", "red", "blue", "green", "rgb(255, 128, 0)", "rgb(128, 128, 64)", "rgb(128, 64, 128)", "rgb(64, 128, 128)"];
+var pixel = 1;
 
 function convertArrayBufferToString(buf){
   var bufView = new Uint8Array(buf);
@@ -176,13 +177,12 @@ function onconnect(e){
 function plot(value){
 	//TODO: multiple waves
 	var canvas = document.getElementById('wavecanvas');
-	var pixel = 1;
    var x_res = canvas.width;
    var y_res = canvas.height;
    
 	var ctx = canvas.getContext('2d');
 	
-	ctx.clearRect(plotxpos, 0, 1, canvas.height);
+	ctx.clearRect(plotxpos, 0, pixel, canvas.height);
 	
 	//var i = 0;
 	for(var i = 0;i<value.length;i++){
@@ -218,7 +218,6 @@ function resize(){
    //console.log(window.devicePixelRatio);
    plotxpos = 0;
 	var canvas = document.getElementById('wavecanvas');
-   var pixel = 1;
    canvas.style.width='100%';
    canvas.style.height='100%';
    canvas.width  = canvas.offsetWidth;
