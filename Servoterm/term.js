@@ -187,7 +187,7 @@ function plot(value){
 	//var i = 0;
 	for(var i = 0;i<value.length;i++){
 		var ypos = (value[i]*-1+1)*(y_res/2.0);
-		if(plotypos[i] && values[i]){
+		if(plotypos[i] && (plotypos[i] != (y_res/2.0) || values[i])){
 			ctx.beginPath();
 		   ctx.lineWidth = pixel;
 			ctx.strokeStyle = wavecolor[i];
