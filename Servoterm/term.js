@@ -156,6 +156,7 @@ function disconnect(){
 function onclear(e){
    var out = document.getElementById("out");
    out.innerHTML = "";
+	document.getElementById('command').focus();
 }
 
 function onreset(e){
@@ -163,6 +164,7 @@ function onreset(e){
 		chrome.serial.send(connid, convertStringToArrayBuffer('fault0.reset = 1\n'), sendcb);
 		chrome.serial.send(connid, convertStringToArrayBuffer('fault0.reset = 0\n'), sendcb);
 	}
+	document.getElementById('command').focus();
 }
 
 function onconnect(e){
