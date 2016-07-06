@@ -9,6 +9,7 @@ var histpos = 0;
 var cmdhistory = [];
 var wavecolor = ["black", "red", "blue", "green", "rgb(255, 128, 0)", "rgb(128, 128, 64)", "rgb(128, 64, 128)", "rgb(64, 128, 128)"];
 var pixel = 1;
+var txqueue = [];
 
 function convertArrayBufferToString(buf){
   var bufView = new Uint8Array(buf);
@@ -40,6 +41,10 @@ function println(str){
 function sendcb(info){
    //println("send " + info.bytesSent + " bytes");
    //println("error: " + info.error);
+   var data = txqueue.shift();
+   if(data){
+      chrome.serial.send(connid, convertStringToArrayBuffer(data + '\n'), sendcb);
+   }
 }
 
 function keypress(e) {
@@ -274,6 +279,36 @@ function resize(){
    ctx.stroke();
 }
 
+function sendfile(file){
+   if(!connected){
+      return;
+   }
+   var reader = new FileReader();
+   reader.onload = function(progressEvent){
+      // chrome.serial.send(connid, this.result, sendcb);
+      var lines = this.result.split('\n');
+      for(var line = 0; line < lines.length; line++){
+            txqueue.push(lines[line]);
+         }
+      chrome.serial.send(connid, convertStringToArrayBuffer(txqueue.shift() + '\n'), sendcb);
+   };
+   reader.readAsText(file);
+}
+
+function ondrop(e){
+   e.stopPropagation();
+   e.preventDefault();
+   if(e.dataTransfer.items.length == 1){//only one file
+      sendfile(e.dataTransfer.files[0]);
+   }
+}
+
+function ondragover(e){
+   e.stopPropagation();
+   e.preventDefault();
+   e.dataTransfer.dropEffect = 'copy';
+}
+
 document.addEventListener('DOMContentLoaded', function () {
 
 	var pstyle = 'background-color: #F5F6F7; border: 1px solid #dfdfdf; padding: 5px;';
@@ -297,4 +332,6 @@ document.addEventListener('DOMContentLoaded', function () {
    document.getElementById('connectbutton').addEventListener("click", onconnect);
 	document.getElementById('clearbutton').addEventListener("click", onclear);
 	document.getElementById('resetbutton').addEventListener("click", onreset);
+   document.getElementById('layout').addEventListener("drop", ondrop);
+   document.getElementById('layout').addEventListener("dragover", ondragover);
 });
