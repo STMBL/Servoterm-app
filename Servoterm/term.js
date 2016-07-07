@@ -41,10 +41,6 @@ function println(str){
 function sendcb(info){
    //println("send " + info.bytesSent + " bytes");
    //println("error: " + info.error);
-   var data = txqueue.shift();
-   if(data){
-      chrome.serial.send(connid, convertStringToArrayBuffer(data + '\n'), sendcb);
-   }
 }
 
 function keypress(e) {
@@ -88,6 +84,12 @@ function keypress(e) {
 }
 
 function receive(info){
+	
+   var data = txqueue.shift();
+   if(data){
+      chrome.serial.send(connid, convertStringToArrayBuffer(data + '\n'), sendcb);
+   }
+	
 	//println("receive");
 	var buf = new Uint8Array(info.data);
 	var txt = '';
