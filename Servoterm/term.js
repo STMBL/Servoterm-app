@@ -10,6 +10,8 @@ var cmdhistory = [];
 var wavecolor = ["black", "red", "blue", "green", "rgb(255, 128, 0)", "rgb(128, 128, 64)", "rgb(128, 64, 128)", "rgb(64, 128, 128)"];
 var pixel = 1;
 var txqueue = [];
+var capture_active = false;
+var data = "";
 
 function convertArrayBufferToString(buf){
   var bufView = new Uint8Array(buf);
@@ -174,6 +176,31 @@ function onreset(e){
 	document.getElementById('command').focus();
 }
 
+function onexport(e){
+   if(capture_active){
+      capture_active = false;
+      document.getElementById('exportbutton').value = "capture";
+      chrome.fileSystem.chooseEntry({type: 'saveFile', suggestedName: "data.csv"}, function(writableFileEntry){
+        writableFileEntry.createWriter(function(writer){
+          writer.onerror = function(e){
+             console.log('write error');
+             data = "";
+          };
+          writer.onwriteend = function(e) {
+             console.log('write complete');
+             data = "";
+          };
+          writer.write(new Blob([data], {type: 'text/plain'}));
+        });
+      }
+      );
+   }
+   else{
+      capture_active = true;
+      document.getElementById('exportbutton').value = "stop + export";
+   }
+}
+
 function onconnect(e){
 	if(connected){
 		disconnect();
@@ -190,6 +217,13 @@ function plot(value){
    var y_res = canvas.height;
    
 	var ctx = canvas.getContext('2d');
+   
+   if(capture_active){
+      for(var i = 0; i < value.length; i++){
+         data += value[i] + ",";
+      }
+      data += "\n"
+   }
 	
 	ctx.clearRect(plotxpos, 0, pixel, canvas.height);
 	
@@ -317,7 +351,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	$('#layout').w2layout({
 		name: 'layout',
 		panels: [
-			{ type: 'top',  size: 30, overflow: "hidden", resizable: false, style: pstyle, content: '<input type="button" id="connectbutton" value="Connect"><input type="button" id="clearbutton" value="Clear"><input type="button" id="resetbutton" value="Reset">' },
+			{ type: 'top',  size: 30, overflow: "hidden", resizable: false, style: pstyle, content: '<input type="button" id="connectbutton" value="Connect"><input type="button" id="clearbutton" value="Clear"><input type="button" id="resetbutton" value="Reset"><input type="button" id="exportbutton" value="capture">' },
 			{ type: 'main', style: pstyle, content: '<canvas id="wavecanvas"></canvas>' },
 			{ type: 'preview'	, size: '50%', resizable: true, style: pstyle, content: '<div class="output" id="out"></div>' },
 			{ type: 'bottom', size: 37, overflow: "hidden", resizable: false, style: pstyle, content: '<input type="text" id="command" class="heighttext" name="command" autocomplete="off" spellcheck="false" autofocus>' }
@@ -334,6 +368,7 @@ document.addEventListener('DOMContentLoaded', function () {
    document.getElementById('connectbutton').addEventListener("click", onconnect);
 	document.getElementById('clearbutton').addEventListener("click", onclear);
 	document.getElementById('resetbutton').addEventListener("click", onreset);
+   document.getElementById('exportbutton').addEventListener("click", onexport);
    document.getElementById('layout').addEventListener("drop", ondrop);
    document.getElementById('layout').addEventListener("dragover", ondragover);
 });
