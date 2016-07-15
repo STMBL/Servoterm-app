@@ -345,20 +345,34 @@ function ondragover(e){
    e.dataTransfer.dropEffect = 'copy';
 }
 
+function onkeyup(e){
+   if(!connected){
+      return;
+   }
+   if(document.getElementById("enablejog").checked){//jogging enabled
+      if(e.keyCode == 37 || e.keyCode == 39){//left
+         e.preventDefault();
+         chrome.serial.send(connid, convertStringToArrayBuffer("jogx\n"), sendcb);
+      }
+   }
+}
+
 function onkeydown(e){
-   // println(e.keyCode);
+   if(!connected){
+      return;
+   }
    if(e.keyCode == 27){//esc
       document.getElementById("enablejog").checked = false;
-      println("estop");
+      chrome.serial.send(connid, convertStringToArrayBuffer("net0.enable = 0\n"), sendcb);
       document.getElementById('command').focus();
    }else if(document.getElementById("enablejog").checked){//jogging enabled
       if(e.keyCode == 37){//left
          e.preventDefault();
-         println("jogl");
+         chrome.serial.send(connid, convertStringToArrayBuffer("jogl\n"), sendcb);
       }
       if(e.keyCode == 39){//right
          e.preventDefault();
-         println("jogr");
+         chrome.serial.send(connid, convertStringToArrayBuffer("jogr\n"), sendcb);
       }
    }
 }
@@ -381,6 +395,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	});
 	
    document.addEventListener("keydown", onkeydown);
+   document.addEventListener("keyup", onkeyup);
 	chrome.serial.onReceive.addListener(receive);
 	chrome.serial.onReceiveError.addListener(error);
    document.getElementById('command').addEventListener("keydown", keypress);
