@@ -12,6 +12,36 @@ var pixel = 1;
 var txqueue = [];
 var capture_active = false;
 var data = "";
+var trigger_wait = true;
+var trigger_lvl = 0.01;
+var trigger_last = 0;
+var trigger_wave = 0;
+var trigger_zerocross = false;
+var trigger_enabled = false;
+var trigger_edge = true; //true = rising  false = falling
+var trigger_buttonstate = 0; //0 disabled; 1 wait for trigger; 2 trigrd
+var trigger_buttonstate_last = 0;
+
+var uitime = setInterval(refresh_UI, 200);
+
+function refresh_UI(){
+  if(trigger_buttonstate != trigger_buttonstate_last){
+    var waitbtn =  document.getElementById("waitbutton");
+
+    if(trigger_buttonstate == 0){
+      waitbtn.value = "Disabled";
+      waitbtn.style.backgroundColor = "grey";
+    }else if (trigger_buttonstate == 1){
+      waitbtn.value = "Wait...";
+      waitbtn.style.backgroundColor = "green";
+    }else if (trigger_buttonstate == 2){
+      waitbtn.value = "Trigrd";
+      waitbtn.style.backgroundColor = "red";
+    }
+
+    trigger_buttonstate_last = trigger_buttonstate;
+  }
+}
 
 function convertArrayBufferToString(buf){
   var bufView = new Uint8Array(buf);
@@ -86,12 +116,12 @@ function keypress(e) {
 }
 
 function receive(info){
-	
+
    var data = txqueue.shift();
    if(data){
       chrome.serial.send(connid, convertStringToArrayBuffer(data + '\n'), sendcb);
    }
-	
+
 	//println("receive");
 	var buf = new Uint8Array(info.data);
 	var txt = '';
@@ -99,8 +129,23 @@ function receive(info){
 		if(addr >= 0){
 			values[addr++] = (buf[i]-128) / 128.0;
 			if(addr == 8){
-				plot(values);
-				addr = -1;
+        //Zerocross detection
+        if(((trigger_last < 0.01 && values[trigger_wave] > 0) || (trigger_last < 0 && values[trigger_wave] > 0.01)) && !trigger_zerocross){
+          trigger_zerocross = true;
+        }
+        trigger_last = values[trigger_wave];
+
+        //Only plot if triggrd
+        if((trigger_enabled && trigger_wait && (values[trigger_wave] >= trigger_lvl) && trigger_zerocross) || (trigger_enabled && !trigger_wait)){
+          trigger_buttonstate = 2;
+          trigger_wait = false;
+
+				  plot(values);
+        }else if (!trigger_enabled) {  //rolling plot if trigger is disabled
+          plot(values);
+
+        }
+        addr = -1;
 			}
 		}else if (buf[i] == 0xff) {
 			addr = 0;
@@ -215,18 +260,18 @@ function plot(value){
 	var canvas = document.getElementById('wavecanvas');
    var x_res = canvas.width;
    var y_res = canvas.height;
-   
+
 	var ctx = canvas.getContext('2d');
-   
+
    if(capture_active){
       for(var i = 0; i < value.length; i++){
          data += value[i] + ",";
       }
       data += "\n"
    }
-	
+
 	ctx.clearRect(plotxpos, 0, pixel, canvas.height);
-	
+
 	//var i = 0;
 	for(var i = 0;i<value.length;i++){
 		var ypos = (value[i]*-1+1)*(y_res/2.0);
@@ -240,7 +285,7 @@ function plot(value){
 		}
 		plotypos[i] = ypos;//save previous position
 	}
-	
+
 	//centerline
 	ctx.beginPath();
 	ctx.lineWidth = pixel;
@@ -248,16 +293,22 @@ function plot(value){
    ctx.moveTo(plotxpos, y_res/2);
    ctx.lineTo(plotxpos+1, y_res/2);
 	ctx.stroke();
-	
+
 	plotxpos+=pixel;
 	if(plotxpos>=x_res){
+
+    if(trigger_enabled){
+      trigger_buttonstate = 1;
+      trigger_wait = true;
+      trigger_zerocross = false;
+    }
 		plotxpos = 0;
 	}
 }
 
 function resize(){
 	// console.log("resize");
-   
+
    //console.log(window.devicePixelRatio);
    plotxpos = 0;
 	var canvas = document.getElementById('wavecanvas');
@@ -265,7 +316,7 @@ function resize(){
    canvas.style.height='100%';
    canvas.width  = canvas.offsetWidth;
    canvas.height = canvas.offsetHeight;
-   
+
    //HiDPI display support
    if(window.devicePixelRatio){
       pixel = window.devicePixelRatio;
@@ -278,40 +329,40 @@ function resize(){
       canvas.style.width = width+"px";
       canvas.style.height = height+"px";
    }
-   
+
    var x_res = canvas.width;
    var y_res = canvas.height;
-   
+
 	var ctx = canvas.getContext('2d');
 	ctx.beginPath();
 	ctx.strokeStyle= "grey";
    ctx.lineWidth = pixel;
-	
+
 	/*
 	//cross
    ctx.moveTo(0,0);
    ctx.lineTo(x_res, y_res);
    ctx.moveTo(x_res,0);
    ctx.lineTo(0, y_res);
-	
+
 	//outline
    ctx.moveTo(0,y_res);
    ctx.lineTo(x_res, y_res);
-	
+
    ctx.moveTo(0,0);
    ctx.lineTo(x_res, 0);
-	
+
    ctx.moveTo(x_res, 0);
    ctx.lineTo(x_res, y_res);
-	
+
    ctx.moveTo(0, 0);
    ctx.lineTo(0, y_res);
 	*/
-	
+
 	//centerline
    ctx.moveTo(0, y_res/2);
    ctx.lineTo(x_res, y_res/2);
-	
+
    ctx.stroke();
 }
 
@@ -357,6 +408,18 @@ function onkeyup(e){
    }
 }
 
+function ontrigger(e){
+   if(document.getElementById("enabletrg").checked){
+     trigger_buttonstate = 1;
+     trigger_enabled = true;
+     trigger_wait = true;
+   }else{
+     trigger_enabled = false;
+     trigger_buttonstate = 0;
+   }
+
+}
+
 function onkeydown(e){
    if(!connected){
       return;
@@ -383,17 +446,17 @@ document.addEventListener('DOMContentLoaded', function () {
 	$('#layout').w2layout({
 		name: 'layout',
 		panels: [
-			{ type: 'top',  size: 30, overflow: "hidden", resizable: false, style: pstyle, content: '<input type="button" id="connectbutton" value="Connect"><input type="button" id="clearbutton" value="Clear"><input type="button" id="resetbutton" value="Reset"><input type="button" id="exportbutton" value="capture"><input type="checkbox" id="enablejog">Jog</input>' },
+			{ type: 'top',  size: 30, overflow: "hidden", resizable: false, style: pstyle, content: '<input type="button" id="connectbutton" value="Connect"><input type="button" id="clearbutton" value="Clear"><input type="button" id="resetbutton" value="Reset"><input type="button" id="exportbutton" value="capture"><input type="checkbox" id="enablejog">Jog</input><input type="checkbox" id="enabletrg">Trigger</input><input type="button" id="waitbutton" value="Disabled">' },
 			{ type: 'main', style: pstyle, content: '<canvas id="wavecanvas"></canvas>' },
 			{ type: 'preview'	, size: '50%', resizable: true, style: pstyle, content: '<div class="output" id="out"></div>' },
 			{ type: 'bottom', size: 37, overflow: "hidden", resizable: false, style: pstyle, content: '<input type="text" id="command" class="heighttext" name="command" autocomplete="off" spellcheck="false" autofocus>' }
-		]  
+		]
 	});
-	
+
 	w2ui['layout'].on({ type : 'resize', execute : 'after'}, function (target, eventData) {
 		resize();
 	});
-	
+
    document.addEventListener("keydown", onkeydown);
    document.addEventListener("keyup", onkeyup);
 	chrome.serial.onReceive.addListener(receive);
@@ -405,4 +468,5 @@ document.addEventListener('DOMContentLoaded', function () {
    document.getElementById('exportbutton').addEventListener("click", onexport);
    document.getElementById('layout').addEventListener("drop", ondrop);
    document.getElementById('layout').addEventListener("dragover", ondragover);
+   document.getElementById('enabletrg').addEventListener("click", ontrigger);
 });
