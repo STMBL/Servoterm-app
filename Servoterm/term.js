@@ -3,7 +3,7 @@ var connected = false;
 var path;
 var addr = -1;
 var values = [];
-var plotxpos = 0;
+var plotxpos = 10;
 var plotypos = [];
 var histpos = 0;
 var cmdhistory = [];
@@ -20,7 +20,7 @@ var trigger_zerocross = false;
 var trigger_enabled = false;
 var trigger_edge = true; //true = rising  false = falling
 var trigger_buttonstate = 0; //0 disabled; 1 wait for trigger; 2 trigrd
-var trigger_buttonstate_last = 0;
+var trigger_buttonstate_last = -1;
 
 var uitime = setInterval(refresh_UI, 200);
 
@@ -32,10 +32,10 @@ function refresh_UI(){
       waitbtn.value = "Disabled";
       waitbtn.style.backgroundColor = "grey";
     }else if (trigger_buttonstate == 1){
-      waitbtn.value = "Wait...";
+      waitbtn.value = "Wait.......";
       waitbtn.style.backgroundColor = "green";
     }else if (trigger_buttonstate == 2){
-      waitbtn.value = "Trigrd";
+      waitbtn.value = "Trigrd.....";
       waitbtn.style.backgroundColor = "red";
     }
 
@@ -294,6 +294,14 @@ function plot(value){
    ctx.lineTo(plotxpos+1, y_res/2);
 	ctx.stroke();
 
+  //Triggerlevel
+  ctx.beginPath();
+  ctx.lineWidth = pixel;
+  ctx.strokeStyle= "red";
+  ctx.moveTo(0, (trigger_lvl*-1+1)*(y_res/2.0));
+  ctx.lineTo(10, (trigger_lvl*-1+1)*(y_res/2.0));
+  ctx.stroke();
+
 	plotxpos+=pixel;
 	if(plotxpos>=x_res){
 
@@ -302,7 +310,7 @@ function plot(value){
       trigger_wait = true;
       trigger_zerocross = false;
     }
-		plotxpos = 0;
+		plotxpos = 10;
 	}
 }
 
@@ -360,10 +368,31 @@ function resize(){
 	*/
 
 	//centerline
-   ctx.moveTo(0, y_res/2);
+   ctx.moveTo(10, y_res/2);
    ctx.lineTo(x_res, y_res/2);
 
    ctx.stroke();
+
+   ctx.beginPath();
+   ctx.lineWidth = pixel;
+   ctx.strokeStyle= "red";
+   ctx.moveTo(0, (trigger_lvl*-1+1)*(y_res/2.0));
+   ctx.lineTo(10, (trigger_lvl*-1+1)*(y_res/2.0));
+   ctx.moveTo(10, (trigger_lvl*-1+1)*(y_res/2.0));
+   if(trigger_lvl>0){
+   ctx.lineTo(5, (trigger_lvl*-1+1)*(y_res/2.0)-2);
+   }else{
+   ctx.lineTo(5, (trigger_lvl*-1+1)*(y_res/2.0)+2);
+   }
+   ctx.stroke();
+   ctx.beginPath();
+   ctx.lineWidth = pixel;
+   ctx.strokeStyle= "black";
+   ctx.moveTo(11, 0);
+   ctx.lineTo(11, y_res);
+   ctx.stroke();
+
+   //levelline();
 }
 
 function sendfile(file){
@@ -420,6 +449,39 @@ function ontrigger(e){
 
 }
 
+function ontrgwave0(e){
+   trigger_wave = 0;
+}
+function ontrgwave1(e){
+   trigger_wave = 1;
+}
+function ontrgwave2(e){
+   trigger_wave = 2;
+}
+function ontrgwave3(e){
+   trigger_wave = 3;
+}
+function ontrglevel(e){
+  var canvas = document.getElementById('wavecanvas');
+  var ctx = canvas.getContext('2d');
+  var x_res = canvas.width;
+  var y_res = canvas.height;
+  trigger_lvl = document.getElementById("trglevel").value
+  ctx.clearRect(0, 0, 10, canvas.height);
+  ctx.beginPath();
+  ctx.lineWidth = pixel;
+  ctx.strokeStyle= "red";
+  ctx.moveTo(0, (trigger_lvl*-1+1)*(y_res/2.0));
+  ctx.lineTo(10, (trigger_lvl*-1+1)*(y_res/2.0));
+  ctx.moveTo(10, (trigger_lvl*-1+1)*(y_res/2.0));
+  if(trigger_lvl>0){
+  ctx.lineTo(5, (trigger_lvl*-1+1)*(y_res/2.0)-2);
+  }else{
+  ctx.lineTo(5, (trigger_lvl*-1+1)*(y_res/2.0)+2);
+  }
+  ctx.stroke();
+}
+
 function onkeydown(e){
    if(!connected){
       return;
@@ -446,12 +508,26 @@ document.addEventListener('DOMContentLoaded', function () {
 	$('#layout').w2layout({
 		name: 'layout',
 		panels: [
-			{ type: 'top',  size: 30, overflow: "hidden", resizable: false, style: pstyle, content: '<input type="button" id="connectbutton" value="Connect"><input type="button" id="clearbutton" value="Clear"><input type="button" id="resetbutton" value="Reset"><input type="button" id="exportbutton" value="capture"><input type="checkbox" id="enablejog">Jog</input><input type="checkbox" id="enabletrg">Trigger</input><input type="button" id="waitbutton" value="Disabled">' },
-			{ type: 'main', style: pstyle, content: '<canvas id="wavecanvas"></canvas>' },
+			{ type: 'top',  size: 50, overflow: "hidden", resizable: false, style: pstyle, content:
+          '<input type="button" id="connectbutton" value="Connect">'+
+          '<input type="button" id="clearbutton" value="Clear">'+
+          '<input type="button" id="resetbutton" value="Reset">'+
+          '<input type="button" id="exportbutton" value="capture">'+
+          '<input type="checkbox" id="enablejog">Jog</input>'+
+          '<input type="checkbox" id="enabletrg">Trigger</input>'+
+          '<b>&nbsp;&nbsp;&nbsp;Trigger wave: </b>'+
+          '<input type="radio" id="trgwave0" name="wave" checked=true>Wave 0'+
+          '<input type="radio" id="trgwave1" name="wave">Wave 1'+
+          '<input type="radio" id="trgwave2" name="wave">Wave 2'+
+          '<input type="radio" id="trgwave3" name="wave">Wave 3'+
+          '&nbsp;&nbsp;&nbsp;<b>Trigger Level</b><input type="range" id="trglevel" name="wave" min="-1" max="1" step="0.01">'+
+          '<input type="button" id="waitbutton" value="Disabled" style="float: right;">'},
+      { type: 'main', style: pstyle, content: '<canvas id="wavecanvas"></canvas>' },
 			{ type: 'preview'	, size: '50%', resizable: true, style: pstyle, content: '<div class="output" id="out"></div>' },
 			{ type: 'bottom', size: 37, overflow: "hidden", resizable: false, style: pstyle, content: '<input type="text" id="command" class="heighttext" name="command" autocomplete="off" spellcheck="false" autofocus>' }
 		]
 	});
+
 
 	w2ui['layout'].on({ type : 'resize', execute : 'after'}, function (target, eventData) {
 		resize();
@@ -469,4 +545,11 @@ document.addEventListener('DOMContentLoaded', function () {
    document.getElementById('layout').addEventListener("drop", ondrop);
    document.getElementById('layout').addEventListener("dragover", ondragover);
    document.getElementById('enabletrg').addEventListener("click", ontrigger);
+   document.getElementById('trgwave0').addEventListener("click", ontrgwave0);
+   document.getElementById('trgwave1').addEventListener("click", ontrgwave1);
+   document.getElementById('trgwave2').addEventListener("click", ontrgwave2);
+   document.getElementById('trgwave3').addEventListener("click", ontrgwave3);
+   document.getElementById('trglevel').addEventListener("input", ontrglevel);
+
+  //document.getElementById('name').addEventListener("click", ontrgwave);
 });
