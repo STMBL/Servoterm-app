@@ -8,6 +8,7 @@ var plotypos = [];
 var histpos = 0;
 var cmdhistory = [];
 var wavecolor = ["white", "red", "blue", "green", "rgb(255, 128, 0)", "rgb(128, 128, 64)", "rgb(128, 64, 128)", "rgb(64, 128, 128)"];
+var wavename = [];
 var pixel = 1;
 var txqueue = [];
 var capture_active = false;
@@ -17,12 +18,16 @@ var trigger_wait = true;
 var trigger_lvl = 0.01;
 var trigger_last = 0;
 var trigger_wave = 0;
-var trigger_zerocross = false;
 var trigger_enabled = false;
 var trigger_edge = true; //true = rising  false = falling
 var trigger_buttonstate = 0; //0 disabled; 1 wait for trigger; 2 trigrd
 var trigger_buttonstate_last = -1;
 var trigger_singleshot = 0;
+var trigger_space = 10;
+var meas_space = 20;
+var meas_position = 4;
+var info_space = 150;
+var decodebuffer = "";
 
 var uitime = setInterval(refresh_UI, 100);
 
@@ -137,20 +142,11 @@ function receive(info){
 			values[addr++] = (buf[i]-128) / 128.0;
 			if(addr == 8){
         //Zerocross detection
-        if(((trigger_last < 0.01 && values[trigger_wave] > 0) || (trigger_last < 0 && values[trigger_wave] > 0.01)) && !trigger_zerocross){
-          trigger_zerocross = true;
+        if((trigger_lvl >= 0 && (values[trigger_wave] > trigger_last && values[trigger_wave] >= trigger_lvl)) || (trigger_lvl < 0 && (values[trigger_wave] < trigger_last && values[trigger_wave] <= trigger_lvl))     ){
+          triggrd = true;
         }
-        trigger_last = values[trigger_wave];
 
-        if(trigger_lvl<0){
-          if(trigger_enabled && trigger_wait && (values[trigger_wave] <= trigger_lvl) && trigger_zerocross){
-            triggrd = true;
-          }
-        }else{
-          if(trigger_enabled && trigger_wait && (values[trigger_wave] >= trigger_lvl) && trigger_zerocross){
-            triggrd = true;
-          }
-        }
+        trigger_last = values[trigger_wave];
 
         //Only plot if triggrd
         if(triggrd || (trigger_enabled && !trigger_wait)){
@@ -171,9 +167,14 @@ function receive(info){
 			//TODO: is there a better way?
 			var str = String.fromCharCode.apply(null, [buf[i]]);
 			if(str == '\n'){
-				txt = txt + "<br />";
+        if(getwavename(decodebuffer)){
+          redrawInfo();
+        }
+        decodebuffer = "";
+        txt = txt + "<br />";
 			}else{
 				txt = txt + str;
+        decodebuffer = decodebuffer + str;
 			}
 		}
 	}
@@ -187,6 +188,7 @@ function connected_cb(connectionInfo){
    	println("connected");
    	connid = connectionInfo.connectionId;
 		connected = true;
+    chrome.serial.send(connid, convertStringToArrayBuffer("term0.wave" + '\n'), sendcb);
    	// println(connectionInfo.connectionId);
 		document.getElementById('connectbutton').value = "Disconnect";
 	}
@@ -239,6 +241,19 @@ function onreset(e){
 	document.getElementById('command').focus();
 }
 
+function redrawMeas(){
+  var canvas = document.getElementById('waveback');
+  var ctx = canvas.getContext('2d');
+  var x_res = canvas.width;
+  var y_res = canvas.height;
+  ctx.clearRect(trigger_space, y_res - meas_space, x_res - info_space, y_res);
+
+  ctx.font = "12px Arial";
+  ctx.textAlign = "left";
+  ctx.fillStyle = "white"
+  ctx.fillText("Trg lvl: " + trigger_lvl ,trigger_space, y_res - meas_position);
+}
+
 function onexport(e){
    if(capture_active){
       capture_active = false;
@@ -276,8 +291,8 @@ function onconnect(e){
 function plot(value){
 	//TODO: multiple waves
 	var canvas = document.getElementById('wavecanvas');
-   var x_res = canvas.width;
-   var y_res = canvas.height;
+   var x_res = canvas.width-info_space;
+   var y_res = canvas.height-meas_space;
 
 	var ctx = canvas.getContext('2d');
 
@@ -288,14 +303,14 @@ function plot(value){
       data += "\n"
    }
 
-	ctx.clearRect(plotxpos, 0, pixel, canvas.height);
+	ctx.clearRect(plotxpos, 0, pixel, y_res);
 
 	//var i = 0;
 	for(var i = 0;i<value.length;i++){
 		var ypos = (value[i]*-1+1)*(y_res/2.0);
 		if(plotypos[i] && (plotypos[i] != (y_res/2.0) || values[i])){
 			ctx.beginPath();
-		   ctx.lineWidth = pixel;
+		  ctx.lineWidth = pixel;
 			ctx.strokeStyle = wavecolor[i];
    		ctx.moveTo(plotxpos,plotypos[i]);
    		ctx.lineTo(plotxpos+pixel,ypos);
@@ -306,15 +321,37 @@ function plot(value){
 
 	plotxpos+=pixel;
 	if(plotxpos>=x_res){
-
     if(trigger_enabled && !trigger_singleshot){
       trigger_buttonstate = 1;
       trigger_wait = true;
-      trigger_zerocross = false;
-
+      for(var i = 0;i<value.length;i++){
+        plotypos[i] = 0;
+      }
     }
     plotxpos = 11;
 	}
+}
+
+function redrawInfo(){
+  var canvas = document.getElementById('waveback');
+  var ctx = canvas.getContext('2d');
+  var x_res = canvas.width;
+  var y_res = canvas.height;
+  var line_height = 16;
+  var trigger_symbol = "";
+  ctx.clearRect(x_res - info_space, 0, x_res, y_res - meas_space);
+  ctx.font = "12px Arial";
+  ctx.textAlign = "left";
+  for (var i = 0; i < 8; i++){
+    if (wavename[i]){
+      ctx.fillStyle = wavecolor[i];
+      if(i == trigger_wave){
+        trigger_symbol = "->";
+      }
+      ctx.fillText(trigger_symbol + "Wave" + i + ": " + wavename[i],x_res - info_space + 4, line_height * (i+1));
+      trigger_symbol = "";
+    }
+  }
 }
 
 function resize(){
@@ -349,16 +386,14 @@ function resize(){
       canvasback.style.height = height+"px";
    }
 
-   var x_res = canvas.width;
-   var y_res = canvas.height;
+   var x_res = canvas.width-info_space;
+   var y_res = canvas.height-meas_space;
 
-	//var ctx = canvas.getContext('2d');
-  var ctxb = canvasback.getContext('2d');
-	ctxb.beginPath();
-	ctxb.strokeStyle= "yellow";
+   var ctxb = canvasback.getContext('2d');
+	 ctxb.beginPath();
+	 ctxb.strokeStyle= "yellow";
    ctxb.lineWidth = pixel;
 
-	//centerline
    ctxb.moveTo(10, Math.floor(y_res/2));
    ctxb.lineTo(x_res, Math.floor(y_res/2));
 
@@ -388,8 +423,7 @@ function resize(){
    ctxb.stroke();
 
    redrawTrigger();
-
-   //levelline();
+   redrawMeas();
 }
 
 function sendfile(file){
@@ -442,11 +476,13 @@ function ontrigger(e){
      trigger_singleshot = false;
      trigger_buttonstate_last = -1;
      redrawTrigger();
+     redrawMeas();
    }else{
      trigger_enabled = false;
      trigger_buttonstate = 0;
      trigger_singleshot = false;
      redrawTrigger();
+     redrawMeas();
    }
 
 }
@@ -454,25 +490,69 @@ function ontrigger(e){
 function ontrgwave0(e){
    trigger_wave = 0;
    activateTrigger();
-   redrawTrigger();
+   redrawAll();
 }
+
+function getwavename(cmd){
+  var dotpos = cmd.indexOf(".wave");
+  if (dotpos == -1){
+    return false;
+  }
+  var linkpos = cmd.indexOf("<=");
+  var wavenumber = parseInt(cmd.substr(dotpos+5,1));
+  var lastequal = cmd.lastIndexOf("=");
+  if(dotpos != -1 && linkpos != -1 && lastequal != -1){
+    wavename[wavenumber] = cmd.slice(linkpos+3,lastequal-1);
+    return true;
+  }else{
+    return false;
+  }
+}
+
+function redrawAll(){
+  redrawTrigger();
+  redrawMeas();
+  redrawInfo();
+}
+
 function ontrgwave1(e){
    trigger_wave = 1;
    activateTrigger();
-   redrawTrigger();
+   redrawAll();
 }
 function ontrgwave2(e){
    trigger_wave = 2;
    activateTrigger();
-   redrawTrigger();
+   redrawAll();
 }
 function ontrgwave3(e){
    trigger_wave = 3;
    activateTrigger();
-   redrawTrigger();
+   redrawAll();
+}
+function ontrgwave4(e){
+   trigger_wave = 4;
+   activateTrigger();
+   redrawAll();
+}
+function ontrgwave5(e){
+   trigger_wave = 5;
+   activateTrigger();
+   redrawAll();
+}
+function ontrgwave6(e){
+   trigger_wave = 6;
+   activateTrigger();
+   redrawAll();
+}
+function ontrgwave7(e){
+   trigger_wave = 7;
+   activateTrigger();
+   redrawAll();
 }
 function ontrglevel(e){
   redrawTrigger();
+  redrawMeas();
 }
 
 function activateTrigger(){
@@ -488,7 +568,7 @@ function redrawTrigger(){
   var canvas = document.getElementById('waveback');
   var ctx = canvas.getContext('2d');
   var x_res = canvas.width;
-  var y_res = canvas.height;
+  var y_res = canvas.height-meas_space;
   var ytrgpos = Math.floor((trigger_lvl*-1+1)*(y_res/2.0));
   trigger_lvl = document.getElementById("trglevel").value
   ctx.clearRect(0, 0, 10, canvas.height);
@@ -564,11 +644,15 @@ document.addEventListener('DOMContentLoaded', function () {
           '<input type="button" id="exportbutton" value="capture">'+
           '<input type="checkbox" id="enablejog">Jog</input>'+
           '<input type="checkbox" id="enabletrg">Trigger</input>'+
-          '<b>&nbsp;&nbsp;&nbsp;Trigger wave: </b>'+
+          '<b>&nbsp;&nbsp;&nbsp;Trigger: </b>'+
           '<input type="radio" id="trgwave0" name="wave" checked=true>Wave 0'+
           '<input type="radio" id="trgwave1" name="wave">Wave 1'+
           '<input type="radio" id="trgwave2" name="wave">Wave 2'+
           '<input type="radio" id="trgwave3" name="wave">Wave 3'+
+          '<input type="radio" id="trgwave4" name="wave">Wave 4'+
+          '<input type="radio" id="trgwave5" name="wave">Wave 5'+
+          '<input type="radio" id="trgwave6" name="wave">Wave 6'+
+          '<input type="radio" id="trgwave7" name="wave">Wave 7'+
           '&nbsp;&nbsp;&nbsp;<b>Trigger Level</b><input type="range" id="trglevel" name="wave" min="-1" max="1" step="0.01">'+
           '<input type="button" id="waitbutton" value="Disabled" style="float: right;">'},
       //{ type: 'main', style: pstyle, content: '<canvas id="wavecanvas" style= "background: black"></canvas>' },
@@ -599,6 +683,10 @@ document.addEventListener('DOMContentLoaded', function () {
    document.getElementById('trgwave1').addEventListener("click", ontrgwave1);
    document.getElementById('trgwave2').addEventListener("click", ontrgwave2);
    document.getElementById('trgwave3').addEventListener("click", ontrgwave3);
+   document.getElementById('trgwave4').addEventListener("click", ontrgwave4);
+   document.getElementById('trgwave5').addEventListener("click", ontrgwave5);
+   document.getElementById('trgwave6').addEventListener("click", ontrgwave6);
+   document.getElementById('trgwave7').addEventListener("click", ontrgwave7);
    document.getElementById('trglevel').addEventListener("input", ontrglevel);
    document.getElementById('waitbutton').addEventListener("click", onwaitbtn);
 
