@@ -149,6 +149,8 @@ function receive(info){
 			}
 		}else if (buf[i] == 0xff) {
 			addr = 0;
+		}else if (buf[i] == 0xfe) {
+			plotxpos = 0;
 		}else{
 			//TODO: is there a better way?
 			var str = String.fromCharCode.apply(null, [buf[i]]);
@@ -176,7 +178,7 @@ function connected_cb(connectionInfo){
 
 function getdevs(devices){
    for (var i = 0; i < devices.length; i++) {
-      if((devices[i].displayName && devices[i].displayName.indexOf("STMBL") > -1) || (devices[i].vendorId && devices[i].vendorId == 1155 && devices[i].productId && devices[i].productId == 22336)){
+      if((devices[i].displayName && (devices[i].displayName.indexOf("STMicroelectronics") > -1 || devices[i].displayName.indexOf("STMBL") > -1)) || (devices[i].vendorId && devices[i].vendorId == 1155 && devices[i].productId && devices[i].productId == 22336)){
 			path = devices[i].path;
          println("Connecting to " + devices[i].path);
          chrome.serial.connect(devices[i].path, connected_cb);
