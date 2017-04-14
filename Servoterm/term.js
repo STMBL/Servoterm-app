@@ -3,26 +3,33 @@ var connected = false;
 var path;
 var addr = -1;
 var values = [];
-var plotxpos = 0;
+var plotxpos = 10;
 var plotypos = [];
 var histpos = 0;
 var cmdhistory = [];
-var wavecolor = ["black", "red", "blue", "green", "rgb(255, 128, 0)", "rgb(128, 128, 64)", "rgb(128, 64, 128)", "rgb(64, 128, 128)"];
+var wavecolor = ["white", "red", "blue", "green", "rgb(255, 128, 0)", "rgb(128, 128, 64)", "rgb(128, 64, 128)", "rgb(64, 128, 128)"];
+var wavename = [];
 var pixel = 1;
 var txqueue = [];
 var capture_active = false;
 var data = "";
+var grid = 50;
 var trigger_wait = true;
 var trigger_lvl = 0.01;
 var trigger_last = 0;
 var trigger_wave = 0;
-var trigger_zerocross = false;
 var trigger_enabled = false;
 var trigger_edge = true; //true = rising  false = falling
 var trigger_buttonstate = 0; //0 disabled; 1 wait for trigger; 2 trigrd
-var trigger_buttonstate_last = 0;
+var trigger_buttonstate_last = -1;
+var trigger_singleshot = 0;
+var trigger_space = 10;
+var meas_space = 20;
+var meas_position = 4;
+var info_space = 150;
+var decodebuffer = "";
 
-var uitime = setInterval(refresh_UI, 200);
+var uitime = setInterval(refresh_UI, 100);
 
 function refresh_UI(){
   if(trigger_buttonstate != trigger_buttonstate_last){
@@ -31,11 +38,15 @@ function refresh_UI(){
     if(trigger_buttonstate == 0){
       waitbtn.value = "Disabled";
       waitbtn.style.backgroundColor = "grey";
-    }else if (trigger_buttonstate == 1){
-      waitbtn.value = "Wait...";
+    }else if(trigger_buttonstate == 1){
+      if(trigger_singleshot){
+        waitbtn.value = "Singleshot";
+      }else{
+        waitbtn.value = "Wait.......";
+      }
       waitbtn.style.backgroundColor = "green";
     }else if (trigger_buttonstate == 2){
-      waitbtn.value = "Trigrd";
+      waitbtn.value = "Trigrd.....";
       waitbtn.style.backgroundColor = "red";
     }
 
@@ -125,23 +136,26 @@ function receive(info){
 	//println("receive");
 	var buf = new Uint8Array(info.data);
 	var txt = '';
+  var triggrd = false;
 	for (var i = 0; i < buf.length; i++) {
 		if(addr >= 0){
 			values[addr++] = (buf[i]-128) / 128.0;
 			if(addr == 8){
         //Zerocross detection
-        if(((trigger_last < 0.01 && values[trigger_wave] > 0) || (trigger_last < 0 && values[trigger_wave] > 0.01)) && !trigger_zerocross){
-          trigger_zerocross = true;
+        if((trigger_lvl >= 0 && (values[trigger_wave] > trigger_last && values[trigger_wave] >= trigger_lvl)) || (trigger_lvl < 0 && (values[trigger_wave] < trigger_last && values[trigger_wave] <= trigger_lvl))     ){
+          triggrd = true;
         }
+
         trigger_last = values[trigger_wave];
 
         //Only plot if triggrd
-        if((trigger_enabled && trigger_wait && (values[trigger_wave] >= trigger_lvl) && trigger_zerocross) || (trigger_enabled && !trigger_wait)){
+        if(triggrd || (trigger_enabled && !trigger_wait)){
           trigger_buttonstate = 2;
           trigger_wait = false;
+          triggrd = false;
 
 				  plot(values);
-        }else if (!trigger_enabled) {  //rolling plot if trigger is disabled
+        }else if (!trigger_enabled && !trigger_singleshot) {  //rolling plot if trigger is disabled
           plot(values);
 
         }
@@ -155,9 +169,14 @@ function receive(info){
 			//TODO: is there a better way?
 			var str = String.fromCharCode.apply(null, [buf[i]]);
 			if(str == '\n'){
-				txt = txt + "<br />";
+        if(getwavename(decodebuffer)){
+          redrawInfo();
+        }
+        decodebuffer = "";
+        txt = txt + "<br />";
 			}else{
 				txt = txt + str;
+        decodebuffer = decodebuffer + str;
 			}
 		}
 	}
@@ -171,6 +190,7 @@ function connected_cb(connectionInfo){
    	println("connected");
    	connid = connectionInfo.connectionId;
 		connected = true;
+    chrome.serial.send(connid, convertStringToArrayBuffer("term0.wave" + '\n'), sendcb);
    	// println(connectionInfo.connectionId);
 		document.getElementById('connectbutton').value = "Disconnect";
 	}
@@ -223,6 +243,19 @@ function onreset(e){
 	document.getElementById('command').focus();
 }
 
+function redrawMeas(){
+  var canvas = document.getElementById('waveback');
+  var ctx = canvas.getContext('2d');
+  var x_res = canvas.width;
+  var y_res = canvas.height;
+  ctx.clearRect(trigger_space, y_res - meas_space, x_res - info_space, y_res);
+
+  ctx.font = "12px Arial";
+  ctx.textAlign = "left";
+  ctx.fillStyle = "white"
+  ctx.fillText("Trg lvl: " + trigger_lvl ,trigger_space, y_res - meas_position);
+}
+
 function onexport(e){
    if(capture_active){
       capture_active = false;
@@ -260,8 +293,8 @@ function onconnect(e){
 function plot(value){
 	//TODO: multiple waves
 	var canvas = document.getElementById('wavecanvas');
-   var x_res = canvas.width;
-   var y_res = canvas.height;
+   var x_res = canvas.width-info_space;
+   var y_res = canvas.height-meas_space;
 
 	var ctx = canvas.getContext('2d');
 
@@ -272,14 +305,14 @@ function plot(value){
       data += "\n"
    }
 
-	ctx.clearRect(plotxpos, 0, pixel, canvas.height);
+	ctx.clearRect(plotxpos, 0, pixel, y_res);
 
 	//var i = 0;
 	for(var i = 0;i<value.length;i++){
 		var ypos = (value[i]*-1+1)*(y_res/2.0);
 		if(plotypos[i] && (plotypos[i] != (y_res/2.0) || values[i])){
 			ctx.beginPath();
-		   ctx.lineWidth = pixel;
+		  ctx.lineWidth = pixel;
 			ctx.strokeStyle = wavecolor[i];
    		ctx.moveTo(plotxpos,plotypos[i]);
    		ctx.lineTo(plotxpos+pixel,ypos);
@@ -288,37 +321,56 @@ function plot(value){
 		plotypos[i] = ypos;//save previous position
 	}
 
-	//centerline
-	ctx.beginPath();
-	ctx.lineWidth = pixel;
-	ctx.strokeStyle= "grey";
-   ctx.moveTo(plotxpos, y_res/2);
-   ctx.lineTo(plotxpos+1, y_res/2);
-	ctx.stroke();
-
 	plotxpos+=pixel;
 	if(plotxpos>=x_res){
-
-    if(trigger_enabled){
+    if(trigger_enabled && !trigger_singleshot){
       trigger_buttonstate = 1;
       trigger_wait = true;
-      trigger_zerocross = false;
+      for(var i = 0;i<value.length;i++){
+        plotypos[i] = 0;
+      }
     }
-		plotxpos = 0;
+    plotxpos = 11;
 	}
+}
+
+function redrawInfo(){
+  var canvas = document.getElementById('waveback');
+  var ctx = canvas.getContext('2d');
+  var x_res = canvas.width;
+  var y_res = canvas.height;
+  var line_height = 16;
+  var trigger_symbol = "";
+  ctx.clearRect(x_res - info_space, 0, x_res, y_res - meas_space);
+  ctx.font = "12px Arial";
+  ctx.textAlign = "left";
+  for (var i = 0; i < 8; i++){
+    if (wavename[i]){
+      ctx.fillStyle = wavecolor[i];
+      if(i == trigger_wave){
+        trigger_symbol = "->";
+      }
+      ctx.fillText(trigger_symbol + "Wave" + i + ": " + wavename[i],x_res - info_space + 4, line_height * (i+1));
+      trigger_symbol = "";
+    }
+  }
 }
 
 function resize(){
 	// console.log("resize");
 
    //console.log(window.devicePixelRatio);
-   plotxpos = 0;
+   plotxpos = 11;
 	var canvas = document.getElementById('wavecanvas');
+  var canvasback = document.getElementById('waveback');
    canvas.style.width='100%';
    canvas.style.height='100%';
    canvas.width  = canvas.offsetWidth;
    canvas.height = canvas.offsetHeight;
-
+   canvasback.style.width='100%';
+   canvasback.style.height='100%';
+   canvasback.width  = canvas.offsetWidth;
+   canvasback.height = canvas.offsetHeight;
    //HiDPI display support
    if(window.devicePixelRatio){
       pixel = window.devicePixelRatio;
@@ -327,45 +379,53 @@ function resize(){
       // reset the canvas width and height with window.devicePixelRatio applied
       canvas.setAttribute('width', Math.round(width * window.devicePixelRatio));
       canvas.setAttribute('height', Math.round( height * window.devicePixelRatio));
+      canvasback.setAttribute('width', Math.round(width * window.devicePixelRatio));
+      canvasback.setAttribute('height', Math.round( height * window.devicePixelRatio));
       // force the canvas back to the original size using css
       canvas.style.width = width+"px";
       canvas.style.height = height+"px";
+      canvasback.style.width = width+"px";
+      canvasback.style.height = height+"px";
    }
 
-   var x_res = canvas.width;
-   var y_res = canvas.height;
+   var x_res = canvas.width-info_space;
+   var y_res = canvas.height-meas_space;
 
-	var ctx = canvas.getContext('2d');
-	ctx.beginPath();
-	ctx.strokeStyle= "grey";
-   ctx.lineWidth = pixel;
+   var ctxb = canvasback.getContext('2d');
+	 ctxb.beginPath();
+	 ctxb.strokeStyle= "yellow";
+   ctxb.lineWidth = pixel;
 
-	/*
-	//cross
-   ctx.moveTo(0,0);
-   ctx.lineTo(x_res, y_res);
-   ctx.moveTo(x_res,0);
-   ctx.lineTo(0, y_res);
+   ctxb.moveTo(10, Math.floor(y_res/2));
+   ctxb.lineTo(x_res, Math.floor(y_res/2));
 
-	//outline
-   ctx.moveTo(0,y_res);
-   ctx.lineTo(x_res, y_res);
+   ctxb.stroke();
 
-   ctx.moveTo(0,0);
-   ctx.lineTo(x_res, 0);
+   ctxb.beginPath();
+   ctxb.lineWidth = pixel;
+   ctxb.strokeStyle= "yellow";
+   ctxb.moveTo(11, 0);
+   ctxb.lineTo(11, y_res);
+   ctxb.stroke();
+   ctxb.beginPath();
+   ctxb.lineWidth = pixel;
+   ctxb.strokeStyle= "grey";
+   for(var i = 10+grid; i < x_res; i=i+grid){
+     ctxb.moveTo(i, 0);
+     ctxb.lineTo(i, y_res);
+   }
 
-   ctx.moveTo(x_res, 0);
-   ctx.lineTo(x_res, y_res);
+   for(i = (y_res/2)+(y_res/10); i < y_res; i=i+(y_res/10)){
+     ctxb.moveTo(10, i);
+     ctxb.lineTo(x_res, i);
+     ctxb.moveTo(10, y_res -i);
+     ctxb.lineTo(x_res, y_res -i);
+   }
 
-   ctx.moveTo(0, 0);
-   ctx.lineTo(0, y_res);
-	*/
+   ctxb.stroke();
 
-	//centerline
-   ctx.moveTo(0, y_res/2);
-   ctx.lineTo(x_res, y_res/2);
-
-   ctx.stroke();
+   redrawTrigger();
+   redrawMeas();
 }
 
 function sendfile(file){
@@ -415,11 +475,142 @@ function ontrigger(e){
      trigger_buttonstate = 1;
      trigger_enabled = true;
      trigger_wait = true;
+     trigger_singleshot = false;
+     trigger_buttonstate_last = -1;
+     redrawTrigger();
+     redrawMeas();
    }else{
      trigger_enabled = false;
      trigger_buttonstate = 0;
+     trigger_singleshot = false;
+     redrawTrigger();
+     redrawMeas();
    }
 
+}
+
+function ontrgwave0(e){
+   trigger_wave = 0;
+   activateTrigger();
+   redrawAll();
+}
+
+function getwavename(cmd){
+  var dotpos = cmd.indexOf(".wave");
+  if (dotpos == -1){
+    return false;
+  }
+  var linkpos = cmd.indexOf("<=");
+  var wavenumber = parseInt(cmd.substr(dotpos+5,1));
+  var lastequal = cmd.lastIndexOf("=");
+  if(dotpos != -1 && linkpos != -1 && lastequal != -1){
+    wavename[wavenumber] = cmd.slice(linkpos+3,lastequal-1);
+    return true;
+  }else{
+    return false;
+  }
+}
+
+function redrawAll(){
+  redrawTrigger();
+  redrawMeas();
+  redrawInfo();
+}
+
+function ontrgwave1(e){
+   trigger_wave = 1;
+   activateTrigger();
+   redrawAll();
+}
+function ontrgwave2(e){
+   trigger_wave = 2;
+   activateTrigger();
+   redrawAll();
+}
+function ontrgwave3(e){
+   trigger_wave = 3;
+   activateTrigger();
+   redrawAll();
+}
+function ontrgwave4(e){
+   trigger_wave = 4;
+   activateTrigger();
+   redrawAll();
+}
+function ontrgwave5(e){
+   trigger_wave = 5;
+   activateTrigger();
+   redrawAll();
+}
+function ontrgwave6(e){
+   trigger_wave = 6;
+   activateTrigger();
+   redrawAll();
+}
+function ontrgwave7(e){
+   trigger_wave = 7;
+   activateTrigger();
+   redrawAll();
+}
+function ontrglevel(e){
+  redrawTrigger();
+  redrawMeas();
+}
+
+function activateTrigger(){
+  document.getElementById("enabletrg").checked = true;
+  trigger_buttonstate = 1;
+  trigger_enabled = true;
+  trigger_wait = true;
+  trigger_singleshot = false;
+  trigger_buttonstate_last = -1;
+}
+
+function redrawTrigger(){
+  var canvas = document.getElementById('waveback');
+  var ctx = canvas.getContext('2d');
+  var x_res = canvas.width;
+  var y_res = canvas.height-meas_space;
+  var ytrgpos = Math.floor((trigger_lvl*-1+1)*(y_res/2.0));
+  trigger_lvl = document.getElementById("trglevel").value
+  ctx.clearRect(0, 0, 10, canvas.height);
+  if(trigger_enabled){
+    ctx.beginPath();
+    ctx.lineWidth = pixel;
+    ctx.strokeStyle = wavecolor[trigger_wave];
+    ctx.moveTo(0, ytrgpos);
+    ctx.lineTo(10, ytrgpos);
+    ctx.moveTo(10, ytrgpos);
+    if(trigger_lvl>0){
+      ctx.lineTo(5, ytrgpos-2);
+    }else{
+      ctx.lineTo(5, ytrgpos+2);
+    }
+    ctx.stroke();
+    ctx.font = "12px Arial";
+    ctx.textAlign = "center";
+    ctx.fillStyle = wavecolor[trigger_wave];
+    if(ytrgpos < 14){
+      ctx.fillText(trigger_wave,4,ytrgpos+12);
+    }else{
+      ctx.fillText(trigger_wave,4,ytrgpos-4);
+    }
+  }
+}
+
+function onwaitbtn(e){
+  if (trigger_buttonstate){
+    trigger_buttonstate = 0;
+    trigger_singleshot = false
+    document.getElementById("enabletrg").checked = false;
+    trigger_enabled = false;
+    redrawTrigger();
+  }else{
+    trigger_buttonstate = 1;
+    trigger_singleshot = true;
+    trigger_enabled = true;
+    redrawTrigger();
+  }
 }
 
 function onkeydown(e){
@@ -448,12 +639,31 @@ document.addEventListener('DOMContentLoaded', function () {
 	$('#layout').w2layout({
 		name: 'layout',
 		panels: [
-			{ type: 'top',  size: 30, overflow: "hidden", resizable: false, style: pstyle, content: '<input type="button" id="connectbutton" value="Connect"><input type="button" id="clearbutton" value="Clear"><input type="button" id="resetbutton" value="Reset"><input type="button" id="exportbutton" value="capture"><input type="checkbox" id="enablejog">Jog</input><input type="checkbox" id="enabletrg">Trigger</input><input type="button" id="waitbutton" value="Disabled">' },
-			{ type: 'main', style: pstyle, content: '<canvas id="wavecanvas"></canvas>' },
+			{ type: 'top',  size: 50, overflow: "hidden", resizable: false, style: pstyle, content:
+          '<input type="button" id="connectbutton" value="Connect">'+
+          '<input type="button" id="clearbutton" value="Clear">'+
+          '<input type="button" id="resetbutton" value="Reset">'+
+          '<input type="button" id="exportbutton" value="capture">'+
+          '<input type="checkbox" id="enablejog">Jog</input>'+
+          '<input type="checkbox" id="enabletrg">Trigger</input>'+
+          '<b>&nbsp;&nbsp;&nbsp;Trigger: </b>'+
+          '<input type="radio" id="trgwave0" name="wave" checked=true>Wave 0'+
+          '<input type="radio" id="trgwave1" name="wave">Wave 1'+
+          '<input type="radio" id="trgwave2" name="wave">Wave 2'+
+          '<input type="radio" id="trgwave3" name="wave">Wave 3'+
+          '<input type="radio" id="trgwave4" name="wave">Wave 4'+
+          '<input type="radio" id="trgwave5" name="wave">Wave 5'+
+          '<input type="radio" id="trgwave6" name="wave">Wave 6'+
+          '<input type="radio" id="trgwave7" name="wave">Wave 7'+
+          '&nbsp;&nbsp;&nbsp;<b>Trigger Level</b><input type="range" id="trglevel" name="wave" min="-1" max="1" step="0.01">'+
+          '<input type="button" id="waitbutton" value="Disabled" style="float: right;">'},
+      //{ type: 'main', style: pstyle, content: '<canvas id="wavecanvas" style= "background: black"></canvas>' },
+      { type: 'main', style: pstyle, content: '<canvas id="waveback" style= "position: absolute; left: 0; top: 0; background: black; z-index: 0;"></canvas><canvas id="wavecanvas" style= "position: absolute; left: 0; top: 0;z-index: 1;"></canvas>' },
 			{ type: 'preview'	, size: '50%', resizable: true, style: pstyle, content: '<div class="output" id="out"></div>' },
 			{ type: 'bottom', size: 37, overflow: "hidden", resizable: false, style: pstyle, content: '<input type="text" id="command" class="heighttext" name="command" autocomplete="off" spellcheck="false" autofocus>' }
 		]
 	});
+
 
 	w2ui['layout'].on({ type : 'resize', execute : 'after'}, function (target, eventData) {
 		resize();
@@ -461,14 +671,26 @@ document.addEventListener('DOMContentLoaded', function () {
 
    document.addEventListener("keydown", onkeydown);
    document.addEventListener("keyup", onkeyup);
-	chrome.serial.onReceive.addListener(receive);
-	chrome.serial.onReceiveError.addListener(error);
+	 chrome.serial.onReceive.addListener(receive);
+	 chrome.serial.onReceiveError.addListener(error);
    document.getElementById('command').addEventListener("keydown", keypress);
    document.getElementById('connectbutton').addEventListener("click", onconnect);
-	document.getElementById('clearbutton').addEventListener("click", onclear);
-	document.getElementById('resetbutton').addEventListener("click", onreset);
+	 document.getElementById('clearbutton').addEventListener("click", onclear);
+	 document.getElementById('resetbutton').addEventListener("click", onreset);
    document.getElementById('exportbutton').addEventListener("click", onexport);
    document.getElementById('layout').addEventListener("drop", ondrop);
    document.getElementById('layout').addEventListener("dragover", ondragover);
    document.getElementById('enabletrg').addEventListener("click", ontrigger);
+   document.getElementById('trgwave0').addEventListener("click", ontrgwave0);
+   document.getElementById('trgwave1').addEventListener("click", ontrgwave1);
+   document.getElementById('trgwave2').addEventListener("click", ontrgwave2);
+   document.getElementById('trgwave3').addEventListener("click", ontrgwave3);
+   document.getElementById('trgwave4').addEventListener("click", ontrgwave4);
+   document.getElementById('trgwave5').addEventListener("click", ontrgwave5);
+   document.getElementById('trgwave6').addEventListener("click", ontrgwave6);
+   document.getElementById('trgwave7').addEventListener("click", ontrgwave7);
+   document.getElementById('trglevel').addEventListener("input", ontrglevel);
+   document.getElementById('waitbutton').addEventListener("click", onwaitbtn);
+
+  //document.getElementById('name').addEventListener("click", ontrgwave);
 });
