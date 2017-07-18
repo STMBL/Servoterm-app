@@ -1,23 +1,82 @@
 html, body
 {
-   height: 100%;
-   margin: 0px;
-   padding: 0px;
+  height: 100%;
+  margin: 0px;
+  padding: 0px;
+  overflow:hidden;
 }
 .output
 {
-	height:100%;
-   font-family: monospace;
-   font-size:10pt;
-	overflow-y:scroll;
-	overflow-x:hidden;
-   -webkit-user-select: text;
+  /*height:100%;*/
+  font-family: monospace;
+  font-size:10pt;
+  overflow-y:scroll;
+  overflow-x:hidden;
+  /*overflow: auto;*/
+  -webkit-user-select: text;
 }
 .heighttext{
-   font-family: monospace;
-   font-size:10pt;
-   width:100%;
+  font-family: monospace;
+  font-size:10pt;
+  width:100%;
 }
 .heighttext:focus {
-   outline:none;
+  outline:none;
+}
+/*background-color: #F5F6F7; border: 1px solid #dfdfdf; padding: 5px;*/
+/*http://griddy.io/*/
+.layout {
+  display: grid;
+  grid-template-columns: 100%;
+  grid-template-rows: 30px 256px auto 37px;
+  /*grid-column-gap: 0px;*/
+  /*grid-row-gap: 0px;*/
+  /*justify-items: stretch;*/
+  /*align-items: stretch;*/
+  /*width: 100%;*/
+  /*height: 100%;*/
+  height:100vh;
+}
+
+textarea {
+  resize: none;
+}
+
+/* The Modal (background) */
+.modal {
+  display: none; /* Hidden by default */
+  position: fixed; /* Stay in place */
+  z-index: 1; /* Sit on top */
+  left: 0;
+  top: 0;
+  width: 100%; /* Full width */
+  height: 100%; /* Full height */
+  overflow: auto; /* Enable scroll if needed */
+  background-color: rgb(0,0,0); /* Fallback color */
+  background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+}
+
+/* Modal Content/Box */
+.modal-content {
+  background-color: #fefefe;
+  margin: 5% auto; /* 15% from the top and centered */
+  padding: 20px;
+  border: 1px solid #888;
+  width: 80%; /* Could be more or less, depending on screen size */
+  /*height: 80%; /* Could be more or less, depending on screen size */*/
+}
+
+/* The Close Button */
+.close {
+  color: #aaa;
+  float: right;
+  font-size: 28px;
+  font-weight: bold;
+}
+
+.close:hover,
+.close:focus {
+  color: black;
+  text-decoration: none;
+  cursor: pointer;
 }

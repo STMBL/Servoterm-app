@@ -309,7 +309,7 @@ function plot(value){
 }
 
 function resize(){
-	// console.log("resize");
+	console.log("resize");
 
    //console.log(window.devicePixelRatio);
    plotxpos = 0;
@@ -335,12 +335,15 @@ function resize(){
    var x_res = canvas.width;
    var y_res = canvas.height;
 
+console.log(x_res);
+console.log(y_res);
+
 	var ctx = canvas.getContext('2d');
 	ctx.beginPath();
 	ctx.strokeStyle= "grey";
    ctx.lineWidth = pixel;
 
-	/*
+	
 	//cross
    ctx.moveTo(0,0);
    ctx.lineTo(x_res, y_res);
@@ -359,7 +362,7 @@ function resize(){
 
    ctx.moveTo(0, 0);
    ctx.lineTo(0, y_res);
-	*/
+	
 
 	//centerline
    ctx.moveTo(0, y_res/2);
@@ -443,32 +446,47 @@ function onkeydown(e){
 }
 
 document.addEventListener('DOMContentLoaded', function () {
+  resize();
+  window.addEventListener("resize", resize);
+  document.addEventListener("keydown", onkeydown);
+  document.addEventListener("keyup", onkeyup);
+  chrome.serial.onReceive.addListener(receive);
+  chrome.serial.onReceiveError.addListener(error);
+  document.getElementById('command').addEventListener("keydown", keypress);
+  document.getElementById('connectbutton').addEventListener("click", onconnect);
+  document.getElementById('clearbutton').addEventListener("click", onclear);
+  document.getElementById('resetbutton').addEventListener("click", onreset);
+  document.getElementById('exportbutton').addEventListener("click", onexport);
+  document.getElementById('layout').addEventListener("drop", ondrop);
+  document.getElementById('layout').addEventListener("dragover", ondragover);
+  document.getElementById('enabletrg').addEventListener("click", ontrigger);
+  
+  
+  
+  
+  // Get the modal
+var modal = document.getElementById('myModal');
 
-	var pstyle = 'background-color: #F5F6F7; border: 1px solid #dfdfdf; padding: 5px;';
-	$('#layout').w2layout({
-		name: 'layout',
-		panels: [
-			{ type: 'top',  size: 30, overflow: "hidden", resizable: false, style: pstyle, content: '<input type="button" id="connectbutton" value="Connect"><input type="button" id="clearbutton" value="Clear"><input type="button" id="resetbutton" value="Reset"><input type="button" id="exportbutton" value="capture"><input type="checkbox" id="enablejog">Jog</input><input type="checkbox" id="enabletrg">Trigger</input><input type="button" id="waitbutton" value="Disabled">' },
-			{ type: 'main', style: pstyle, content: '<canvas id="wavecanvas"></canvas>' },
-			{ type: 'preview'	, size: '50%', resizable: true, style: pstyle, content: '<div class="output" id="out"></div>' },
-			{ type: 'bottom', size: 37, overflow: "hidden", resizable: false, style: pstyle, content: '<input type="text" id="command" class="heighttext" name="command" autocomplete="off" spellcheck="false" autofocus>' }
-		]
-	});
+// Get the button that opens the modal
+var btn = document.getElementById("myBtn");
 
-	w2ui['layout'].on({ type : 'resize', execute : 'after'}, function (target, eventData) {
-		resize();
-	});
+// Get the <span> element that closes the modal
+var span = document.getElementsByClassName("close")[0];
 
-   document.addEventListener("keydown", onkeydown);
-   document.addEventListener("keyup", onkeyup);
-	chrome.serial.onReceive.addListener(receive);
-	chrome.serial.onReceiveError.addListener(error);
-   document.getElementById('command').addEventListener("keydown", keypress);
-   document.getElementById('connectbutton').addEventListener("click", onconnect);
-	document.getElementById('clearbutton').addEventListener("click", onclear);
-	document.getElementById('resetbutton').addEventListener("click", onreset);
-   document.getElementById('exportbutton').addEventListener("click", onexport);
-   document.getElementById('layout').addEventListener("drop", ondrop);
-   document.getElementById('layout').addEventListener("dragover", ondragover);
-   document.getElementById('enabletrg').addEventListener("click", ontrigger);
+// When the user clicks on the button, open the modal 
+btn.onclick = function() {
+    modal.style.display = "block";
+}
+
+// When the user clicks on <span> (x), close the modal
+span.onclick = function() {
+    modal.style.display = "none";
+}
+
+// When the user clicks anywhere outside of the modal, close it
+window.onclick = function(event) {
+    if (event.target == modal) {
+        modal.style.display = "none";
+    }
+}
 });
