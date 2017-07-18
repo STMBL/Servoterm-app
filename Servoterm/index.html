@@ -4,14 +4,11 @@
   <meta charset="utf-8">
   <title>Servoterm</title>
   <link href="styles/main.css" rel="stylesheet">
-  <!-- <link href="w2ui-1.4.3.css" rel="stylesheet">
-  <script src="jquery-3.0.0.min.js" type="text/javascript"></script>
-  <script src="w2ui-1.4.3.js" type="text/javascript"></script> -->
   <script src="term.js" type="text/javascript"></script>
 </head>
 <body>
-  <div id="layout" class="layout">
-    <div>
+  <div id="layout">
+    <div class="toolbar">
       <input type="button" id="connectbutton" value="Connect">
       <input type="button" id="clearbutton" value="Clear">
       <input type="button" id="resetbutton" value="Reset">
@@ -19,30 +16,24 @@
       <input type="checkbox" id="enablejog">Jog</input>
       <input type="checkbox" id="enabletrg">Trigger</input>
       <input type="button" id="waitbutton" value="Disabled">
-      <button id="myBtn">Edit config</button>
+      <button id="configbutton">Edit config</button>
     </div>
     <div>
-      <canvas id="wavecanvas"></canvas>
+      <canvas id="wavecanvas" class="border"></canvas>
     </div>
-    <!-- <div> -->
     <div class="output" id="out"></div>
-    <!-- </div> -->
     <div>
       <input type="text" id="command" class="heighttext" name="command" autocomplete="off" spellcheck="false" autofocus>
     </div>
   </div>
   
   <div id="myModal" class="modal">
-    <!-- Modal content -->
     <div class="modal-content">
       <span class="close">&times;</span>
-      <p>Configuration</p>
-      <textarea class="heighttext" rows="25">
-        At w3schools.com you will learn how to make a website. We offer free tutorials in all web development technologies. 
-      </textarea>
-      <button id="myBtn">Save</button>
+      <h3>Configuration</h3>
+      <textarea id="configtext" class="heighttext" rows="25"></textarea>
+      <button id="configsavebutton">Save</button>
     </div>
-    
   </div>
 </body>
 </html>
