@@ -223,8 +223,8 @@ function onclear(e){
 
 function onreset(e){
 	if(connected){
-		chrome.serial.send(connid, convertStringToArrayBuffer('fault0.reset = 1\n'), sendcb);
-		chrome.serial.send(connid, convertStringToArrayBuffer('fault0.reset = 0\n'), sendcb);
+		chrome.serial.send(connid, convertStringToArrayBuffer('fault0.en = 0\n'), sendcb);
+		chrome.serial.send(connid, convertStringToArrayBuffer('fault0.en = 1\n'), sendcb);
 	}
 	document.getElementById('command').focus();
 }
@@ -432,7 +432,7 @@ function onkeydown(e){
    }
    if(e.keyCode == 27){//esc
       document.getElementById("enablejog").checked = false;
-      chrome.serial.send(connid, convertStringToArrayBuffer("net0.enable = 0\n"), sendcb);
+      chrome.serial.send(connid, convertStringToArrayBuffer("fault0.en = 0\n"), sendcb);
       document.getElementById('command').focus();
    }else if(document.getElementById("enablejog").checked){//jogging enabled
       if(e.keyCode == 37){//left
@@ -505,6 +505,7 @@ document.addEventListener('DOMContentLoaded', function () {
         //println(lines[line]);
         //chrome.serial.send(connid, convertStringToArrayBuffer('appendconf ' + lines[line] + '\n'), sendcb);
      }
+     txqueue.push('flashsaveconf');
      modal.style.display = "none";
   }
 
