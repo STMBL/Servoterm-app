@@ -118,12 +118,6 @@ function keypress(e) {
 }
 
 function receive(info){
-
-   var data = txqueue.shift();
-   if(data){
-      chrome.serial.send(connid, convertStringToArrayBuffer(data + '\n'), sendcb);
-   }
-
 	//println("receive");
 	var buf = new Uint8Array(info.data);
 	var txt = '';
@@ -452,6 +446,85 @@ function filltext(){
    var configtext = document.getElementById('configtext');
    configtext.value = redirect_buf;
    configtext.disabled = false;
+   onconfigchange();
+}
+
+// var makeCRCTable = function(){
+//     var c;
+//     var crcTable = [];
+//     for(var n =0; n < 256; n++){
+//         c = n;
+//         for(var k =0; k < 8; k++){
+//             c = ((c&1) ? (0x04C11DB7 ^ (c >>> 1)) : (c >>> 1));
+//         }
+//         crcTable[n] = c;
+//     }
+//     return crcTable;
+// }
+//
+// var crc32 = function(str) {
+//     var crcTable = window.crcTable || (window.crcTable = makeCRCTable());
+//     var crc = 0 ^ (-1);
+//
+//     for (var i = 0; i < str.length; i++ ) {
+//         crc = (crc >>> 8) ^ crcTable[(crc ^ str.charCodeAt(i)) & 0xFF];
+//     }
+//
+//     return (crc ^ (-1)) >>> 0;
+// };
+
+// function crc32(s/*, polynomial = 0x04C11DB7, initialValue = 0xFFFFFFFF, finalXORValue = 0xFFFFFFFF*/) {
+//   var polynomial = arguments.length < 2 ? 0x04C11DB7 : arguments[1],
+//       initialValue = arguments.length < 3 ? 0xFFFFFFFF : arguments[2],
+//       finalXORValue = arguments.length < 4 ? 0xFFFFFFFF : arguments[3],
+//       crc = initialValue,
+//       table = [], i, j, c;
+//
+//   function reflect(x, n) {
+//     var b = 0;
+//     while (n) {
+//       b = b * 2 + x % 2;
+//       x = Math.floor(x / 2);
+//       n--;
+//     }
+//     return b;
+//   }
+//
+//   for (i = 0; i < 256; i++) {
+//     table[i] = reflect(i, 8) * 0x1000000;
+//
+//     for (j = 0; j < 8; j++) {
+//       table[i] = ((table[i] * 2) ^ (((table[i] >>> 31) % 2) * polynomial)) >>> 0;
+//     }
+//
+//     table[i] = reflect(table[i], 32);
+//   }
+//
+//   for (i = 0; i < s.length; i++) {
+//     c = s.charCodeAt(i);
+//     if (c > 255) {
+//       throw new RangeError();
+//     }
+//     j = (crc % 256) ^ c;
+//     crc = ((crc / 256) ^ table[j]) >>> 0;
+//   }
+//
+//   return (crc ^ finalXORValue) >>> 0;
+// }
+
+function onconfigchange(){
+   var configmetadata = document.getElementById('configmetadata');
+   var configtext = document.getElementById('configtext');
+   configmetadata.innerHTML = configtext.value.length + " Bytes"; // + crc32(configtext.value).toString(16);
+}
+
+function myTimer(){
+   if(connected){
+      var data = txqueue.shift();
+      if(data){
+         chrome.serial.send(connid, convertStringToArrayBuffer(data + '\n'), sendcb);
+      }
+   }
 }
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -491,6 +564,7 @@ document.addEventListener('DOMContentLoaded', function () {
      chrome.serial.send(connid, convertStringToArrayBuffer('showconf' + '\n'), sendcb);
      window.setTimeout(filltext, 100);
      var configtext = document.getElementById('configtext');
+     configtext.addEventListener("keyup", onconfigchange);
      configtext.value = '';
      configtext.disabled = true;
      modal.style.display = "block";
@@ -520,4 +594,5 @@ document.addEventListener('DOMContentLoaded', function () {
         modal.style.display = "none";
      }
 }
+var timer = setInterval(myTimer, 50);
 });
