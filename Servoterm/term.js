@@ -446,6 +446,7 @@ function filltext(){
    var configtext = document.getElementById('configtext');
    configtext.value = redirect_buf;
    configtext.disabled = false;
+   configtext.focus();
    onconfigchange();
 }
 
@@ -581,11 +582,13 @@ document.addEventListener('DOMContentLoaded', function () {
      }
      txqueue.push('flashsaveconf');
      modal.style.display = "none";
+     document.getElementById("command").focus();
   }
 
   // When the user clicks on <span> (x), close the modal
   span.onclick = function() {
      modal.style.display = "none";
+     document.getElementById("command").focus();
   }
 
   // When the user clicks anywhere outside of the modal, close it
