@@ -23,6 +23,7 @@ var trigger_buttonstate = 0; //0 disabled; 1 wait for trigger; 2 trigrd
 var trigger_buttonstate_last = 0;
 var redirect_en = 0;
 var redirect_buf = '';
+var alpha_timeout = 0;
 
 var uitime = setInterval(refresh_UI, 200);
 
@@ -258,8 +259,7 @@ function onconnect(e){
 }
 
 function plot(value){
-	//TODO: multiple waves
-	var canvas = document.getElementById('wavecanvas');
+   var canvas = document.getElementById('wavecanvas');
    var x_res = canvas.width;
    var y_res = canvas.height;
 
@@ -272,9 +272,24 @@ function plot(value){
       data += "\n"
    }
 
-	ctx.clearRect(plotxpos, 0, pixel, canvas.height);
+   if(document.getElementById('xymode').checked){
+      x_res = x_res - y_res;
 
-	//var i = 0;
+      ctx.beginPath();
+      ctx.lineWidth = pixel;
+      ctx.strokeStyle = "grey";
+      ctx.arc(x_res + y_res/2, y_res/2, y_res/2*0.75, 0, 2 * Math.PI);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.strokeStyle = "ForestGreen";
+      var ypos = (value[0]*-1+1)*(y_res/2.0);
+      var xpos = (value[1]*-1+1)*(y_res/2.0);
+      ctx.rect(xpos+x_res, ypos, 1, 1)
+      ctx.stroke()
+   }
+   
+   ctx.clearRect(plotxpos, 0, pixel, canvas.height);
 	for(var i = 0;i<value.length;i++){
 		var ypos = (value[i]*-1+1)*(y_res/2.0);
 		if(plotypos[i] && (plotypos[i] != (y_res/2.0) || values[i])){
@@ -286,9 +301,10 @@ function plot(value){
 			ctx.stroke();
 		}
 		plotypos[i] = ypos;//save previous position
-	}
+   }
 
-	//centerline
+   //centerline
+   ctx.clearRect(0, canvas.height, canvas.width, canvas.height);
 	ctx.beginPath();
 	ctx.lineWidth = pixel;
 	ctx.strokeStyle= "grey";
@@ -305,7 +321,18 @@ function plot(value){
       trigger_zerocross = false;
     }
 		plotxpos = 0;
-	}
+   }
+
+   if(document.getElementById('xymode').checked){
+      if(Date.now() > alpha_timeout + 50){//decay sin/cos pixels
+         var imgData = ctx.getImageData(x_res, 0, canvas.height, canvas.height);
+         for(var j=0;j < imgData.data.length;j+=4){
+            imgData.data[j+3] = imgData.data[j+3]-1
+         }
+         ctx.putImageData(imgData, x_res, 0);
+         alpha_timeout = Date.now()
+      }
+   }
 }
 
 function resize(){
@@ -330,8 +357,12 @@ function resize(){
       canvas.style.height = height+"px";
    }
 
-   var x_res = canvas.width;
-   var y_res = canvas.height;
+   var x_res = canvas.width
+   var y_res = canvas.height
+
+   if(document.getElementById('xymode').checked){
+      x_res = x_res - y_res;
+   }
 
 	var ctx = canvas.getContext('2d');
 	ctx.beginPath();
