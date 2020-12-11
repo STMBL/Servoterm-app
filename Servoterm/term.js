@@ -457,6 +457,7 @@ function onkeydown(e){
    }
    if(e.keyCode == 27){//esc
       document.getElementById("enablejog").checked = false;
+      chrome.serial.send(connid, convertStringToArrayBuffer("disable\n"), sendcb);
       chrome.serial.send(connid, convertStringToArrayBuffer("fault0.en = 0\n"), sendcb);
       document.getElementById('command').focus();
    }else if(document.getElementById("enablejog").checked){//jogging enabled
